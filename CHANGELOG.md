@@ -2,6 +2,7 @@
 
 ## 2026-10-31
 
+- `f652961` build: add Dockerfile, CI workflow and Portainer compose
 - `253c8b2` feat(pwa): add token-scoped manifest, service worker, icons and iOS meta
 - `5bedebb` feat(api)!: replace MEMBERS env with members table and routes
 - `ef99aa2` feat(web): add list, add and name picker UI with Stremio card and install hint
