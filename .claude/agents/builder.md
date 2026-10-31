@@ -79,7 +79,7 @@ Never:
 - `git push`
 - Anything that deploys or touches real infrastructure: `portainer_redeploy`,
   `docker push`, Portainer or Cloudflare API calls
-- Touching the production DB or the `mv-data` volume
+- Touching the production DB or the `popcorn-data` volume
 - Adding, removing or upgrading dependencies, unless the plan says so
 - Editing `.env*` files, `mise.toml`, CI workflows or Docker files, unless the plan says so
 

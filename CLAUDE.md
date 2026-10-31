@@ -1,4 +1,4 @@
-# Directives for Claude (Project: mv — shared watchlist + Stremio addon)
+# Directives for Claude (Project: Popcorn — shared watchlist + Stremio addon)
 
 A private, self-hosted app for two people: a shared movie & series watchlist with
 TMDB metadata, plus a Stremio catalog addon served by the same server. Access is a
@@ -72,16 +72,16 @@ secret URL token, no accounts. Follow the rules below for all code suggestions.
 ## 🧰 Tooling & Environment
 
 - Tool versions (Node, pnpm) and environment variables are managed with **mise**. Do not suggest nvm, direnv, or manually exporting env vars; use `mise.toml` / `mise` commands. `mise.toml` is gitignored; `mise.toml.example` is the committed template.
-- Env vars: `APP_TOKEN`, `TMDB_API_TOKEN` (TMDB v4 read access token), `SITE_URL`, `DATABASE_PATH` (default `/data/mv.db`), `MEMBERS` (comma-separated names), `PORT`.
+- Env vars: `APP_TOKEN`, `TMDB_API_TOKEN` (TMDB v4 read access token), `SITE_URL`, `DATABASE_PATH` (default `/data/popcorn.db`), `MEMBERS` (comma-separated names), `PORT`.
 - Scripts: `pnpm dev` (server + Vite together), `pnpm build`, `pnpm start`, `pnpm typecheck`, `pnpm lint`, `pnpm db:generate`.
 
 ## 🐳 Docker Build & Deploy
 
-- **The image is built by GitHub Actions, never locally.** Every push to `main` runs `.github/workflows/ci.yml`: typecheck + lint + build, then pushes `ghcr.io/baptistebergmann/mv` tagged `latest` and the short SHA (amd64 only). `git push origin main` *is* the build step. Do not run `docker build`/`buildx` to ship a change.
+- **The image is built by GitHub Actions, never locally.** Every push to `main` runs `.github/workflows/ci.yml`: typecheck + lint + build, then pushes `ghcr.io/baptistebergmann/popcorn` tagged `latest` and the short SHA (amd64 only). `git push origin main` *is* the build step. Do not run `docker build`/`buildx` to ship a change.
 - Base image is `node:22-bookworm-slim` (glibc, so `better-sqlite3` prebuilt binaries work). Don't switch to alpine.
 - All app config is runtime env vars on the container, not build args.
 - Deploying = push to `main`, wait for CI to go green (`gh run watch`), then `mise run portainer_redeploy` to make the Portainer stack (`docker-compose.portainer.yml`, `pull_policy: always`) re-pull `:latest`. Portainer pulls the image; it does not build from source.
-- The SQLite DB lives on the `mv-data` volume at `/data`. Never recreate or prune that volume.
+- The SQLite DB lives on the `popcorn-data` volume at `/data`. Never recreate or prune that volume.
 - Public access goes through a Cloudflare Tunnel public hostname pointing at the container port.
 
 ## ✅ Git Workflow
