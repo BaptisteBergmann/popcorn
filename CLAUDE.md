@@ -63,7 +63,7 @@ secret URL token, no accounts. Follow the rules below for all code suggestions.
 ### 5. PWA
 
 - `vite-plugin-pwa` generates the manifest and service worker. Both are served under `/<token>/` with relative `start_url`/`scope`, so the installed app keeps the token and the SW controls nothing outside it.
-- The SW precaches the app shell, uses network-first for `GET /api/titles` and `/api/config`, and cache-first for TMDB posters. It never caches `/api/search`, non-GET requests or `/stremio/*`.
+- The SW precaches the app shell, uses network-first for `GET /api/titles`, `/api/members` and `/api/config`, and cache-first for TMDB posters. It never caches `/api/search`, non-GET requests or `/stremio/*`.
 - Offline is read-only: disable mutations and show the offline notice.
 
 ### 6. Logging (Debugging)
