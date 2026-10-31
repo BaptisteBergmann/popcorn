@@ -2,28 +2,28 @@
 
 ## 2026-10-31
 
-- `b496b1f` docs: list /api/members in the SW caching rules
-- `8626209` fix(web): look up existing member in fresh data on 409
-- `c3388f0` style(api): drop unused sql import
-- `89084d4` fix(db): use a Unicode-folded name_key for member uniqueness
-- `315c24f` fix(tmdb): log rate limiting with retry-after
-- `69c85c9` fix(server): allow TMDB in connect-src and return 400 for malformed JSON
-- `f652961` build: add Dockerfile, CI workflow and Portainer compose
-- `253c8b2` feat(pwa): add token-scoped manifest, service worker, icons and iOS meta
-- `5bedebb` feat(api)!: replace MEMBERS env with members table and routes
-- `ef99aa2` feat(web): add list, add and name picker UI with Stremio card and install hint
-- `6848fd0` docs: make members dynamic and drop names from the plan
-- `918502f` chore: tidy gitignore for the vite stack
-- `73224e5` feat(stremio): add manifest and catalog routes with CORS
-- `8406600` feat(api): add titles CRUD and TMDB search routes
-- `27d1ba6` feat(server): add TMDB client for search and details
-- `265cf86` feat(db): add titles schema, first migration and startup migrate
-- `7af1b39` feat(server): add token-gated Hono app, env, logger and SPA serving
-- `502d487` feat: scaffold Vite, React, Tailwind and tooling
-- `8f867c2` chore(web): add official TMDB logo for attribution
-- `d4088e6` docs: add backlog with title detail view
-- `c1bb263` docs: add MVP design and approve plan
-- `a0c3487` docs: forbid committing the real hostname
-- `21d54d9` docs: add PWA to the MVP plan and guidelines
-- `370a781` docs: name the project Popcorn, set French UI and members
+- `baab8d3` docs: list /api/members in the SW caching rules
+- `1227ff1` fix(web): look up existing member in fresh data on 409
+- `b05a6cb` style(api): drop unused sql import
+- `fb52de0` fix(db): use a Unicode-folded name_key for member uniqueness
+- `e7ac2a8` fix(tmdb): log rate limiting with retry-after
+- `3ad1172` fix(server): allow TMDB in connect-src and return 400 for malformed JSON
+- `dc22886` build: add Dockerfile, CI workflow and Portainer compose
+- `ead5fb8` feat(pwa): add token-scoped manifest, service worker, icons and iOS meta
+- `c9f9fad` feat(api)!: replace MEMBERS env with members table and routes
+- `00ed214` feat(web): add list, add and name picker UI with Stremio card and install hint
+- `7a27ecd` docs: make members dynamic and drop names from the plan
+- `3929361` chore: tidy gitignore for the vite stack
+- `e9551dc` feat(stremio): add manifest and catalog routes with CORS
+- `cad3715` feat(api): add titles CRUD and TMDB search routes
+- `5e33bd9` feat(server): add TMDB client for search and details
+- `7f5ec40` feat(db): add titles schema, first migration and startup migrate
+- `d9de8b3` feat(server): add token-gated Hono app, env, logger and SPA serving
+- `259eb98` feat: scaffold Vite, React, Tailwind and tooling
+- `10d43c6` chore(web): add official TMDB logo for attribution
+- `e4af1e8` docs: add backlog with title detail view
+- `2e7ee10` docs: add MVP design and approve plan
+- `1abb4ce` docs: forbid committing the real hostname
+- `524a4d9` docs: add PWA to the MVP plan and guidelines
+- `d1577b8` docs: name the project Popcorn, set French UI and members
 - `28324b6` docs: add project guidelines, agents and watchlist MVP plan
