@@ -2,6 +2,7 @@
   "name": "popcorn",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@12.4.1",
   "type": "module",
   "scripts": {
     "dev": "concurrently -n server,web -c blue,green \"tsx watch src/server/index.ts\" \"vite\"",
