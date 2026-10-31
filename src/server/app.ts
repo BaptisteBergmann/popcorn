@@ -1,0 +1,99 @@
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { serveStatic } from '@hono/node-server/serve-static';
+import { Hono } from 'hono';
+import { secureHeaders } from 'hono/secure-headers';
+import { logger } from '@server/logger';
+import { api } from '@server/routes/api';
+import { stremio } from '@server/routes/stremio';
+import { tokenGate } from '@server/token';
+
+const WEB_ROOT = path.join(process.cwd(), 'dist', 'web');
+const stripToken = (p: string) => p.replace(/^\/[^/]+/, '');
+
+let indexTemplate: string | null = null;
+async function renderIndex(token: string): Promise<string | null> {
+  try {
+    indexTemplate ??= await readFile(path.join(WEB_ROOT, 'index.html'), 'utf8');
+  } catch {
+    return null;
+  }
+  // The token is URL-safe (validated in env.ts), so injecting it here is safe.
+  return indexTemplate.replace('<head>', `<head>\n    <base href="/${token}/" />`);
+}
+
+// Typed part: the RPC client is created with baseUrl `/<token>/`, so AppType is the gated app.
+const gated = new Hono().use(tokenGate).route('/api', api).route('/stremio', stremio);
+
+// SPA routes (`/`, `/add`) get index.html with <base> injected. File-like paths go to static
+// files below; api/stremio never fall back to HTML.
+gated.get('*', async (c, next) => {
+  const rest = stripToken(c.req.path);
+  if (/^\/(api|stremio)(\/|$)/.test(rest)) return c.notFound();
+  if (/\.[a-z0-9]+$/i.test(rest)) return next();
+  const html = await renderIndex(c.req.param('token') ?? '');
+  if (!html) {
+    logger.child({ function: 'spaFallback' }).warn('dist/web/index.html not found (run pnpm build)');
+    return c.notFound();
+  }
+  c.header('Cache-Control', 'no-cache');
+  return c.html(html);
+});
+
+gated.get(
+  '*',
+  serveStatic({
+    root: path.relative(process.cwd(), WEB_ROOT) || '.',
+    rewriteRequestPath: stripToken,
+    onFound: (filePath, c) => {
+      // The SW and manifest must be revalidated; hashed assets never change.
+      if (/(^|[\\/])(sw\.js|manifest\.webmanifest|index\.html)$/.test(filePath)) {
+        c.header('Cache-Control', 'no-cache');
+      } else if (filePath.includes('assets')) {
+        c.header('Cache-Control', 'public, max-age=31536000, immutable');
+      }
+    },
+  }),
+);
+
+export type AppType = typeof gated;
+
+export const app = new Hono();
+
+app.use(
+  secureHeaders({
+    referrerPolicy: 'no-referrer',
+    xFrameOptions: 'DENY',
+    xContentTypeOptions: 'nosniff',
+    // Stremio fetches the addon cross-origin; CORS is handled on those routes only.
+    crossOriginResourcePolicy: false,
+    // The SPA only loads its own assets, TMDB posters, and inline styles from Radix/Tailwind.
+    contentSecurityPolicy: {
+      defaultSrc: ["'self'"],
+      imgSrc: ["'self'", 'https://image.tmdb.org', 'data:'],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      connectSrc: ["'self'"],
+      workerSrc: ["'self'"],
+      manifestSrc: ["'self'"],
+      frameAncestors: ["'none'"],
+    },
+  }),
+);
+app.use(async (c, next) => {
+  await next();
+  c.header('X-Robots-Tag', 'noindex');
+});
+
+// Log method and status only; the path contains the token.
+app.use(async (c, next) => {
+  await next();
+  logger.child({ function: 'request' }).debug({ method: c.req.method, status: c.res.status });
+});
+
+app.route('/:token', gated);
+app.notFound((c) => c.body(null, 404));
+app.onError((err, c) => {
+  logger.child({ function: 'onError' }).error({ err: err.message }, 'Unhandled error');
+  return c.json({ error: 'Internal error' }, 500);
+});
+

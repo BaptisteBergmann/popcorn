@@ -5,10 +5,10 @@ import { defineConfig } from 'vite';
 
 const SERVER = 'http://localhost:8787';
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   root: 'src/web',
-  // Relative base: the app lives under /<token>/ and the token is not known at build time.
-  base: './',
+  // Build: relative base, the token is not known at build time. Dev: Vite itself is served under /<token>/.
+  base: command === 'serve' && process.env.APP_TOKEN ? `/${process.env.APP_TOKEN}/` : './',
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
@@ -27,4 +27,4 @@ export default defineConfig({
       '^/[^/]+/(api|stremio)(/|$)': SERVER,
     },
   },
-});
+}));
