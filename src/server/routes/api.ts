@@ -1,5 +1,5 @@
 import { zValidator } from '@hono/zod-validator';
-import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { z } from 'zod';
