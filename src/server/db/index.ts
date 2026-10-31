@@ -38,6 +38,7 @@ function rekeyMembers() {
       db.update(schema.members).set({ nameKey: key }).where(eq(schema.members.id, row.id)).run();
       contextLogger.info({ memberId: row.id }, 'Member key recomputed');
     } catch (err) {
+      if ((err as { code?: string }).code !== 'SQLITE_CONSTRAINT_UNIQUE') throw err;
       // Two legacy rows that now fold to the same key: keep both, flag it.
       contextLogger.warn({ memberId: row.id, err }, 'Member key collides with another member');
     }
