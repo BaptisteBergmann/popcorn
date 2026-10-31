@@ -2,6 +2,7 @@
 
 ## 2026-10-31
 
+- `a1dae83` fix(db): only swallow unique collisions when rekeying members
 - `264950e` fix(db): recompute member keys at startup and share memberKey with web
 - `baab8d3` docs: list /api/members in the SW caching rules
 - `1227ff1` fix(web): look up existing member in fresh data on 409
