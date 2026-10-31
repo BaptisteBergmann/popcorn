@@ -2,6 +2,7 @@
 
 ## 2026-10-31
 
+- `b496b1f` docs: list /api/members in the SW caching rules
 - `8626209` fix(web): look up existing member in fresh data on 409
 - `c3388f0` style(api): drop unused sql import
 - `89084d4` fix(db): use a Unicode-folded name_key for member uniqueness
