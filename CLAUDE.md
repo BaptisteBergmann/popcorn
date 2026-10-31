@@ -50,6 +50,7 @@ secret URL token, no accounts. Follow the rules below for all code suggestions.
 
 - Everything is mounted under `/:token`, behind the single gate middleware in `src/server/token.ts` (constant-time compare). Any other path returns a bare 404.
 - Never add a route outside the gated sub-app.
+- Never commit the real hostname, the token or any secret. Committed files use `${SITE_URL}` / `popcorn.<domain>`; real values live only in the gitignored `mise.toml` and the Portainer stack env.
 - Never log the token. Send `Referrer-Policy: no-referrer` on every response, since the token is in the URL. External links use `rel="noreferrer"`.
 
 ### 4. Stremio addon
