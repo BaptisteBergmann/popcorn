@@ -2,6 +2,7 @@
 
 ## 2026-10-31
 
+- `5bedebb` feat(api)!: replace MEMBERS env with members table and routes
 - `ef99aa2` feat(web): add list, add and name picker UI with Stremio card and install hint
 - `6848fd0` docs: make members dynamic and drop names from the plan
 - `918502f` chore: tidy gitignore for the vite stack
