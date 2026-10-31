@@ -2,6 +2,7 @@
 
 ## 2026-10-31
 
+- `69c85c9` fix(server): allow TMDB in connect-src and return 400 for malformed JSON
 - `f652961` build: add Dockerfile, CI workflow and Portainer compose
 - `253c8b2` feat(pwa): add token-scoped manifest, service worker, icons and iOS meta
 - `5bedebb` feat(api)!: replace MEMBERS env with members table and routes
