@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Check } from 'lucide-react';
 import { toast } from 'sonner';
+import { memberKey } from '@shared/member_key';
 import { Button } from '@web/components/ui/button';
 import {
   Dialog,
@@ -38,7 +39,8 @@ export function NamePickerDialog() {
         // Name already exists (case-insensitive): select the existing one.
         // Look it up in freshly fetched data: the cached list may predate the other person's add.
         const fresh = await qc.fetchQuery({ queryKey: ['members'], queryFn: fetchMembers, staleTime: 0 });
-        const existing = fresh.find((m) => m.name.toLocaleLowerCase('fr') === trimmed.toLocaleLowerCase('fr'));
+        const key = memberKey(trimmed);
+        const existing = fresh.find((m) => memberKey(m.name) === key);
         if (existing) {
           setMember(existing.name);
           setName('');

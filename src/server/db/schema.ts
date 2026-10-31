@@ -27,8 +27,7 @@ export const titles = sqliteTable(
 export type TitleRow = typeof titles.$inferSelect;
 export type NewTitleRow = typeof titles.$inferInsert;
 
-/** Uniqueness key for member names: SQLite's lower() only folds ASCII, so fold in JS instead. */
-export const memberKey = (name: string) => name.trim().normalize('NFC').toLocaleLowerCase('fr');
+export { memberKey } from '../../shared/member_key';
 
 export const members = sqliteTable(
   'members',
