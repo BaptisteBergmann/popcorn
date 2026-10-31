@@ -11,7 +11,8 @@ import {
   DialogTitle,
 } from '@web/components/ui/dialog';
 import { Input } from '@web/components/ui/input';
-import { ApiError, useAddMember } from '@web/lib/api';
+import { useQueryClient } from '@tanstack/react-query';
+import { ApiError, fetchMembers, useAddMember } from '@web/lib/api';
 import { copy } from '@web/lib/copy';
 import { useMember } from '@web/lib/member';
 import { useOnline } from '@web/lib/use_online';
@@ -21,6 +22,7 @@ export function NamePickerDialog() {
   const open = mustPick || pickerOpen;
   const online = useOnline();
   const addMember = useAddMember();
+  const qc = useQueryClient();
   const [name, setName] = useState('');
   const trimmed = name.trim();
 
@@ -34,7 +36,9 @@ export function NamePickerDialog() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         // Name already exists (case-insensitive): select the existing one.
-        const existing = members.find((m) => m.name.toLowerCase() === trimmed.toLowerCase());
+        // Look it up in freshly fetched data: the cached list may predate the other person's add.
+        const fresh = await qc.fetchQuery({ queryKey: ['members'], queryFn: fetchMembers, staleTime: 0 });
+        const existing = fresh.find((m) => m.name.toLocaleLowerCase('fr') === trimmed.toLocaleLowerCase('fr'));
         if (existing) {
           setMember(existing.name);
           setName('');

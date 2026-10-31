@@ -63,15 +63,14 @@ export function useConfig() {
   });
 }
 
+export async function fetchMembers(): Promise<MemberDto[]> {
+  const res = await client.api.members.$get();
+  if (!res.ok) throw new ApiError(res.status);
+  return res.json();
+}
+
 export function useMembers() {
-  return useQuery({
-    queryKey: ['members'],
-    queryFn: async (): Promise<MemberDto[]> => {
-      const res = await client.api.members.$get();
-      if (!res.ok) throw new ApiError(res.status);
-      return res.json();
-    },
-  });
+  return useQuery({ queryKey: ['members'], queryFn: fetchMembers });
 }
 
 export function useAddMember() {
