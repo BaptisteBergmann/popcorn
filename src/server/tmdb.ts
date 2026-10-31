@@ -44,6 +44,10 @@ async function tmdbGet(path: string, params: Record<string, string>): Promise<un
     throw new TmdbError('TMDB unreachable', 502);
   }
   if (res.status === 404) throw new TmdbError('Not found on TMDB', 404);
+  if (res.status === 429) {
+    contextLogger.warn({ status: 429, retryAfter: res.headers.get('retry-after') }, 'TMDB rate limit hit');
+    throw new TmdbError('TMDB rate limited', 502);
+  }
   if (!res.ok) {
     contextLogger.error({ status: res.status }, 'TMDB returned an error');
     throw new TmdbError('TMDB error', 502);
