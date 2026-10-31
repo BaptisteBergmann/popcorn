@@ -1,0 +1,14 @@
+# Copy to mise.toml (gitignored) and fill in real values. Never commit mise.toml.
+[tools]
+node = "22"
+pnpm = "latest"
+
+[env]
+APP_TOKEN = "change-me-openssl-rand-hex-24"
+TMDB_API_TOKEN = "tmdb-v4-read-access-token"
+SITE_URL = "https://popcorn.<domain>"
+DATABASE_PATH = "./data/popcorn.db"
+MEMBERS = "Alex,Sam"
+PORT = "8787"
+
+# Filled in step 9 (redeploy task copied from lepetitmonde)

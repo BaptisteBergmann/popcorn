@@ -26,3 +26,6 @@ mise.toml
 .DS_Store
 *.pem
 *.log
+
+# build output
+/dist/
