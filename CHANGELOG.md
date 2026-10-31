@@ -2,6 +2,8 @@
 
 ## 2026-10-31
 
+- `6848fd0` docs: make members dynamic and drop names from the plan
+- `918502f` chore: tidy gitignore for the vite stack
 - `73224e5` feat(stremio): add manifest and catalog routes with CORS
 - `8406600` feat(api): add titles CRUD and TMDB search routes
 - `27d1ba6` feat(server): add TMDB client for search and details
