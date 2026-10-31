@@ -59,7 +59,13 @@ secret URL token, no accounts. Follow the rules below for all code suggestions.
 - Stremio responses send `Access-Control-Allow-Origin: *` (Stremio routes only) and a short `Cache-Control`.
 - Bump the manifest `version` when catalogs or manifest fields change. Never change the manifest `id`.
 
-### 5. Logging (Debugging)
+### 5. PWA
+
+- `vite-plugin-pwa` generates the manifest and service worker. Both are served under `/<token>/` with relative `start_url`/`scope`, so the installed app keeps the token and the SW controls nothing outside it.
+- The SW precaches the app shell, uses network-first for `GET /api/titles` and `/api/config`, and cache-first for TMDB posters. It never caches `/api/search`, non-GET requests or `/stremio/*`.
+- Offline is read-only: disable mutations and show the offline notice.
+
+### 6. Logging (Debugging)
 
 - Do not use `console.log()`. On the server, use **Pino** via `src/server/logger.ts`, with a child logger per handler / function:
 

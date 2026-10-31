@@ -74,6 +74,9 @@ writes files.
   no hand-written fetch URLs bypassing `hc<AppType>`.
 - Server: errors surface as proper responses, nothing swallowed silently.
 - SPA serving still works on deep routes (`<base href>` injection, React Router basename).
+- PWA: manifest and SW stay scoped to `/<token>/`; SW caching rules match `CLAUDE.md`
+  (no search, non-GET or `/stremio/*` caching); offline mode disables mutations;
+  SW served with `Cache-Control: no-cache` so updates roll out.
 
 ## 6. Accessibility and mobile
 - Icon-only buttons have labels; posters have meaningful `alt`.

@@ -46,6 +46,8 @@ new component, say which Shadcn primitive it should be built from.
 - **Accessible.** Sufficient contrast, visible focus, labels on icon-only buttons,
   meaningful alt text (title + year for posters), keyboard-usable dialogs, respect
   `prefers-reduced-motion`.
+- **Feels like an app.** It's installed as a PWA: design for standalone mode
+  (no browser chrome, iOS safe-area insets), and include the offline state.
 - **Every state designed.** Loading, empty, error, success, and slow network for
   anything that fetches (TMDB search especially). Missing posters get a placeholder.
 
@@ -77,7 +79,7 @@ Wireframe (mobile):
 - Empty: <message and call to action>
 - Error: <what the user sees and can do>
 - Success: <feedback, e.g. toast or inline>
-- Slow network: <for TMDB search and mutations>
+- Slow network / offline: <for TMDB search and mutations; offline is read-only>
 
 ### Copy
 | Key | Text |

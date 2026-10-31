@@ -16,6 +16,8 @@ device.
 - "Pick a random movie tonight", genre/runtime sorting and filters, per-person
   ratings. Later plans.
 - i18n. UI copy is French only, hardcoded (no i18n library).
+- Offline edits / background sync.
+- Push notifications.
 - Multi-arch images. The Proxmox host is amd64.
 
 ## Current state
@@ -159,6 +161,30 @@ newest first, only rows with an `imdb_id`, posters as `https://image.tmdb.org/t/
 Unknown type/id → 404. `Cache-Control: max-age=60` so changes show up quickly and
 Cloudflare doesn't hold stale lists.
 
+## PWA
+Installable on phones (Android + iOS "Sur l'écran d'accueil"), since that's the
+main way we'll use it.
+- `vite-plugin-pwa` (Workbox, `generateSW`, `registerType: 'autoUpdate'`) generates
+  the web manifest and service worker at build time. Icons generated once from a
+  source SVG with `@vite-pwa/assets-generator` and committed to `src/web/public/`.
+- **Token-scoped**: manifest and service worker are served under `/<token>/`,
+  with relative `start_url: "./"` and `scope: "./"`, so the installed app opens
+  `/<token>/` and the SW only controls that path. Installing from the token URL
+  is enough; nothing else to configure on the phone.
+- Manifest: `name: "Popcorn"`, `lang: "fr"`, `display: "standalone"`, theme and
+  background colors from the design tokens, 192/512 icons + maskable, plus
+  `apple-touch-icon` and `apple-mobile-web-app-*` meta tags in `index.html` for iOS.
+- Caching:
+  - App shell (JS/CSS/HTML/icons): precached.
+  - `GET /api/titles`, `/api/config`: network-first, short fallback cache, so the
+    list still opens offline (read-only).
+  - TMDB poster images (`image.tmdb.org`): cache-first, capped (~300 entries, 30 days).
+  - Never cached: `/api/search`, any non-GET, `/stremio/*`.
+- Offline: mutations are disabled with a "Hors ligne" notice. No background sync
+  in the MVP.
+- The SW must not cache the bare 404 returned for wrong tokens, and must never
+  be registered outside `/<token>/`.
+
 ## Dev workflow
 - `pnpm dev`: runs `tsx watch src/server/index.ts` (port 8787) and `vite` (port 5173)
   together (`concurrently`). Vite proxies `/<token>/api` and `/<token>/stremio` to
@@ -181,7 +207,11 @@ Cloudflare doesn't hold stale lists.
 6. Stremio routes + CORS. Files: `src/server/routes/stremio.ts`.
 7. UI: `hc` client + query hooks, list page, add/search page, name picker
    (localStorage), install-addon card. Files: `src/web/*`.
-8. Docker + CI + deploy: multi-stage `Dockerfile` on `node:22-bookworm-slim`
+8. PWA: `vite-plugin-pwa` config, icons, iOS meta tags, offline notice; server
+   serves `manifest.webmanifest` and `sw.js` under the token with
+   `Cache-Control: no-cache` on the SW. Files: `vite.config.ts`, `src/web/public/`,
+   `src/web/index.html`, `src/server/app.ts`.
+9. Docker + CI + deploy: multi-stage `Dockerfile` on `node:22-bookworm-slim`
    (glibc, so `better-sqlite3` prebuilt binaries work), prod deps only, non-root,
    `/data` volume; `.dockerignore`; `.github/workflows/ci.yml` (typecheck, lint,
    build, push `ghcr.io/baptistebergmann/popcorn:latest` + short SHA);
@@ -213,6 +243,8 @@ Behaviour the screens need:
   remembered on the device.
 - Stremio card: install button (`stremio://` link) and copyable URL.
 - TMDB attribution in the footer (required by their terms).
+- PWA: app icon (popcorn), theme color, splash/background color, offline notice,
+  and how the app looks in standalone mode (safe-area insets on iOS).
 - UI copy in French. TMDB requests use `language=fr-FR` (titles, overviews,
   posters), falling back to the original title when there's no French one.
 - Mobile first. Mostly used on phones, sometimes on a laptop.
@@ -232,5 +264,8 @@ Behaviour the screens need:
 4. Install the addon in Stremio desktop via the https URL: rows "Popcorn · À voir"
    appear, clicking a title opens its Cinemeta page.
 5. Mark watched: it moves to "Popcorn · Déjà vus" in the UI and in Stremio after a refresh.
-6. Negative: `curl -X DELETE /wrong-token/api/titles/1` → 404, DB unchanged.
+6. PWA: install on Android (Chrome) and iOS (Safari → Sur l'écran d'accueil); it
+   opens on `/<token>/` standalone. Turn on airplane mode: the list still shows,
+   add/remove are disabled. Lighthouse PWA check passes.
+7. Negative: `curl -X DELETE /wrong-token/api/titles/1` → 404, DB unchanged.
    `grep` the built `dist/web` for the TMDB token → no match.

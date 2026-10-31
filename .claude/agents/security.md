@@ -82,6 +82,8 @@ and that it looks live, but do not echo the value.
   outbound links), `X-Content-Type-Options`, `X-Frame-Options`/`frame-ancestors`,
   `X-Robots-Tag: noindex`, CSP where practical.
 - Outbound links (TMDB, IMDb) use `rel="noreferrer"`.
+- Service worker: scope limited to `/<token>/`, never caches the wrong-token 404
+  or non-GET responses, and can't be registered from outside the gate.
 - Cloudflare caching can't serve one response to the wrong path or keep stale
   private responses.
 
