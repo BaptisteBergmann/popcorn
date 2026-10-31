@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#130e0a"/>
+  <defs>
+    <clipPath id="bucket"><polygon points="150,270 362,270 334,440 178,440"/></clipPath>
+  </defs>
+  <!-- kernel clouds overflowing the bucket -->
+  <g fill="#f7be2b">
+    <circle cx="186" cy="238" r="40"/>
+    <circle cx="256" cy="204" r="52"/>
+    <circle cx="326" cy="238" r="40"/>
+    <circle cx="222" cy="266" r="36"/>
+    <circle cx="292" cy="266" r="36"/>
+  </g>
+  <!-- striped bucket -->
+  <g clip-path="url(#bucket)">
+    <rect x="140" y="260" width="232" height="190" fill="#f5ecd7"/>
+    <g fill="#d63b2f">
+      <rect x="172" y="260" width="34" height="190"/>
+      <rect x="240" y="260" width="34" height="190"/>
+      <rect x="308" y="260" width="34" height="190"/>
+    </g>
+  </g>
+  <rect x="140" y="262" width="232" height="14" rx="7" fill="#f5ecd7"/>
+</svg>
