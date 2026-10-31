@@ -1,6 +1,8 @@
 # Popcorn — shared watchlist + Stremio addon (MVP)
 
-Status: approved — ready to build
+## Status: implemented
+Shipped 2026-10-31 and deployed (Portainer stack, Cloudflare Tunnel). Deviations: `MEMBERS` env replaced by a `members` table with an add-name form in the name picker (`name_key` folded in JS); PWA install hint added; title detail view moved to `backlog.md`; server bundled with tsup; TypeScript pinned to 6 for typescript-eslint.
+
 Approved by: owner (2026-10-31)
 
 ## Goal
