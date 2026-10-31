@@ -2,6 +2,7 @@
 
 ## 2026-10-31
 
+- `502d487` feat: scaffold Vite, React, Tailwind and tooling
 - `8f867c2` chore(web): add official TMDB logo for attribution
 - `d4088e6` docs: add backlog with title detail view
 - `c1bb263` docs: add MVP design and approve plan
