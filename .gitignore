@@ -1,15 +1,17 @@
 # dependencies
 /node_modules
+.pnpm-store/
 
-# next.js
-/.next/
-/out/
-/build
-next-env.d.ts
+# build output
+/dist/
+/dev-dist/
+.vite/
 *.tsbuildinfo
+/coverage/
 
-# local env / config
+# local env / config (secrets, real hostname)
 mise.toml
+mise.local.toml
 !mise.toml.example
 .env*
 
@@ -21,11 +23,14 @@ mise.toml
 # claude local state
 .claude/worktrees/
 .claude/scheduled_tasks.lock
+.claude/settings.local.json
+
+# editors / OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
 
 # misc
-.DS_Store
 *.pem
 *.log
-
-# build output
-/dist/
