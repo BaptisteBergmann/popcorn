@@ -2,6 +2,7 @@
 
 ## 2026-10-31
 
+- `265cf86` feat(db): add titles schema, first migration and startup migrate
 - `7af1b39` feat(server): add token-gated Hono app, env, logger and SPA serving
 - `502d487` feat: scaffold Vite, React, Tailwind and tooling
 - `8f867c2` chore(web): add official TMDB logo for attribution
