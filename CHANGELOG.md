@@ -2,6 +2,7 @@
 
 ## 2026-10-31
 
+- `c3388f0` style(api): drop unused sql import
 - `89084d4` fix(db): use a Unicode-folded name_key for member uniqueness
 - `315c24f` fix(tmdb): log rate limiting with retry-after
 - `69c85c9` fix(server): allow TMDB in connect-src and return 400 for malformed JSON
