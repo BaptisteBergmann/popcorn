@@ -2,6 +2,7 @@
 
 ## 2026-10-31
 
+- `8406600` feat(api): add titles CRUD and TMDB search routes
 - `27d1ba6` feat(server): add TMDB client for search and details
 - `265cf86` feat(db): add titles schema, first migration and startup migrate
 - `7af1b39` feat(server): add token-gated Hono app, env, logger and SPA serving
