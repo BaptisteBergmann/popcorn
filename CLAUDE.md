@@ -1,6 +1,6 @@
 # Directives for Claude (Project: Popcorn — shared watchlist + Stremio addon)
 
-A private, self-hosted app for two people: a shared movie & series watchlist with
+A private, self-hosted app for a small group (members add themselves in the UI): a shared movie & series watchlist with
 TMDB metadata, plus a Stremio catalog addon served by the same server. Access is a
 secret URL token, no accounts. Follow the rules below for all code suggestions.
 
@@ -79,7 +79,7 @@ secret URL token, no accounts. Follow the rules below for all code suggestions.
 ## 🧰 Tooling & Environment
 
 - Tool versions (Node, pnpm) and environment variables are managed with **mise**. Do not suggest nvm, direnv, or manually exporting env vars; use `mise.toml` / `mise` commands. `mise.toml` is gitignored; `mise.toml.example` is the committed template.
-- Env vars: `APP_TOKEN`, `TMDB_API_TOKEN` (TMDB v4 read access token), `SITE_URL`, `DATABASE_PATH` (default `/data/popcorn.db`), `MEMBERS` (comma-separated names), `PORT`.
+- Env vars: `APP_TOKEN`, `TMDB_API_TOKEN` (TMDB v4 read access token), `SITE_URL`, `DATABASE_PATH` (default `/data/popcorn.db`), `PORT`.
 - Scripts: `pnpm dev` (server + Vite together), `pnpm build`, `pnpm start`, `pnpm typecheck`, `pnpm lint`, `pnpm db:generate`.
 
 ## 🐳 Docker Build & Deploy

@@ -1,7 +1,7 @@
 # Popcorn — shared watchlist + Stremio addon (MVP)
 
 Status: approved — ready to build
-Approved by: Baptiste (2026-10-31)
+Approved by: owner (2026-10-31)
 
 ## Goal
 A tiny private web app where the two of us add movies and TV series to a shared
@@ -88,13 +88,21 @@ Table `titles`:
 | overview | text null | |
 | genres | text | JSON array of names |
 | runtime | integer null | minutes (movies), avg episode runtime (series) |
-| added_by | text null | one of `MEMBERS`, chosen in the UI and remembered in localStorage |
+| added_by | text null | a name from `members`, chosen in the UI and remembered in localStorage |
 | status | text | `to_watch` \| `watched`, default `to_watch` |
 | added_at | integer | unix ms |
 | watched_at | integer null | unix ms |
 
 Unique index on `(tmdb_id, type)`: adding the same title twice returns 409 and the
 UI shows "already in the list".
+
+Table `members` (no names in env or code; people add themselves from the name picker):
+
+| column | type | notes |
+|---|---|---|
+| id | integer pk | |
+| name | text | trimmed, 1–30 chars; unique index on `lower(name)` |
+| created_at | integer | unix ms |
 
 ## Access and security
 - `APP_TOKEN` env var: a long random string (`openssl rand -hex 24`). Everything is
@@ -104,7 +112,7 @@ UI shows "already in the list".
 - `TMDB_API_TOKEN` and `APP_TOKEN` live only in `src/server/`. The web bundle
   imports server code with `import type` only, and there are no secret `VITE_*` vars.
 - Input validation (zod): search query ≤ 100 chars; `tmdbId` a positive int;
-  `type` and `status` from the allowed enums; `addedBy` one of `MEMBERS`. TMDB URLs
+  `type` and `status` from the allowed enums; `addedBy` a 1–30 char name that exists in `members`; member `name` trimmed, 1–30 chars. TMDB URLs
   are built only from validated values.
 - `Referrer-Policy: no-referrer` on every response, since the token is in the URL
   and poster requests to TMDB would otherwise leak it. Outbound links get `rel="noreferrer"`.
@@ -126,7 +134,9 @@ All under `/<token>`:
 | `PATCH /api/titles/:id` `{ status }` | Mark watched / to watch |
 | `DELETE /api/titles/:id` | Remove |
 | `GET /api/search?q=` | TMDB `/search/multi`, movies + tv only, each flagged `inList` |
-| `GET /api/config` | `{ members, stremioManifestUrl }` for the UI |
+| `GET /api/members` | `[{ id, name }]` sorted by name |
+| `POST /api/members` `{ name }` | 201 `{ id, name }`; 409 if it exists (case-insensitive) |
+| `GET /api/config` | `{ stremioManifestUrl }` for the UI |
 | `GET /stremio/manifest.json` | Stremio manifest |
 | `GET /stremio/catalog/:type/:id.json` | Catalog feed |
 
@@ -144,7 +154,7 @@ Manifest:
   "id": "local.popcorn.watchlist",
   "version": "1.0.0",
   "name": "Popcorn",
-  "description": "La liste de films et séries de Alex & Sam",
+  "description": "Notre liste de films et séries à voir",
   "resources": ["catalog"],
   "types": ["movie", "series"],
   "idPrefixes": ["tt"],
@@ -222,7 +232,7 @@ Each step is its own commit and leaves the app building.
 
 ## Deployment
 - Portainer stack on the Proxmox host: the `app` service with `pull_policy: always`,
-  volume `popcorn-data:/data`, env `APP_TOKEN`, `TMDB_API_TOKEN`, `SITE_URL`, `MEMBERS=Alex,Sam`,
+  volume `popcorn-data:/data`, env `APP_TOKEN`, `TMDB_API_TOKEN`, `SITE_URL`,
   a small `mem_limit` (256 MB is plenty).
 - Cloudflare Tunnel: add a public hostname (e.g. `movies.<domain>`) to the existing
   tunnel, pointing at `http://<host>:<port>`. If there's no tunnel on that host,
@@ -238,7 +248,7 @@ Behaviour the screens need (requirements, unchanged):
   "To watch" / "Watched", filter Movies / Series / All.
 - Add: debounced search box, results with poster/year/type, an "Add" button
   that becomes "In list" when the title is already saved.
-- Name picker: first visit asks "Who are you?" (one button per `MEMBERS` name),
+- Name picker: first visit asks "Who are you?" (one button per existing member, plus a field to add a new name),
   remembered on the device.
 - Stremio card: install button (`stremio://` link) and copyable URL.
 - TMDB attribution in the footer (required by their terms).
@@ -462,14 +472,17 @@ Wireframe:
 +--------------------------------+
 |        Qui es-tu ?             |
 |  On saura qui a ajouté quoi.   |
-|  [        Baptiste          ]  |  Button outline, h-14, full width
-|  [        Alex              ]  |
+|  [        Alex              ]  |  Button outline, h-14, full width, one per member
+|  [        Sam               ]  |
+|  ── ou ──                      |
+|  Ton prénom [__________]       |  Input, 1–30 chars
+|  [       C'est moi          ]  |  Button primary, creates + selects
 +--------------------------------+
 ```
 - Shadcn `Dialog`. **First visit** (no valid `popcorn:member` in localStorage, or stored
-  name not in `config.members`): opens automatically, non-dismissible (no close X,
+  name not in `GET /api/members`): opens automatically, non-dismissible (no close X,
   `onInteractOutside`/`onEscapeKeyDown` prevented). One `Button variant="outline"
-  size="lg"` (`h-14 text-base`) per member from `/api/config`. Tap = save + close, no
+  size="lg"` (`h-14 text-base`) per member from `GET /api/members`. Below, an "Ajouter un nom" form (`Input` labelled "Ton prénom", submit "C'est moi") creates the member via `POST /api/members` and selects it; a 409 selects the existing one. With zero members only the form shows. Offline: the form is disabled. Tap = save + close, no
   confirm step. Focus lands on the first button.
 - **Switching later**: the header "name chip" (`Button variant="ghost"`, `h-11`, circle with
   the initial in `bg-primary text-primary-foreground` + name, `max-w-[9rem] truncate`,
@@ -751,7 +764,7 @@ Other: `index.css` (tokens + reduced-motion rule), `public/tmdb.svg`, `public/` 
 - TMDB logo: official "blue_short" SVG downloaded to `src/web/public/tmdb.svg`.
 - For the planner/builder: `/api/titles` and `/api/search` must return a ready `posterUrl`
   (w342, or null) plus `year`, `type`, `inList`, `imdbId`/`hasImdb`, `addedBy`; `/api/config`
-  returns `members` and `stremioManifestUrl` (https). The UI derives `stremio://`.
+  returns `stremioManifestUrl` (https); members come from `GET /api/members`. The UI derives `stremio://`.
 - PWA "Installer l'appli" hint: yes, in the MVP (see "Install hint" above).
 
 ## Risks and open questions
