@@ -1,7 +1,7 @@
 # Popcorn — shared watchlist + Stremio addon (MVP)
 
-Status: draft — needs design
-Approved by:
+Status: approved — ready to build
+Approved by: Baptiste (2026-10-31)
 
 ## Goal
 A tiny private web app where the two of us add movies and TV series to a shared
@@ -231,9 +231,8 @@ Each step is its own commit and leaves the app building.
   be a later plan.
 
 ## Design
-To be completed by the designer subagent.
 
-Behaviour the screens need:
+Behaviour the screens need (requirements, unchanged):
 - List: poster grid, title, year, type, who added it, "watched" toggle, remove
   (with confirm dialog), "not in Stremio" badge when `imdb_id` is null. Tabs
   "To watch" / "Watched", filter Movies / Series / All.
@@ -248,6 +247,512 @@ Behaviour the screens need:
 - UI copy in French. TMDB requests use `language=fr-FR` (titles, overviews,
   posters), falling back to the original title when there's no French one.
 - Mobile first. Mostly used on phones, sometimes on a laptop.
+
+### Visual direction
+- **Dark only.** Justification: posters pop on a dark ground, the app is used on the
+  couch in the evening, and one token set means half the styling and no theme
+  switch. Set `<html class="dark" style="color-scheme: dark">` and define tokens on
+  `:root` (no `.dark` split). No light mode in the MVP.
+- Tokens (Shadcn variable names, in `src/web/index.css`, oklch; warm near-black with a
+  butter-yellow accent). Components use tokens only, never raw colors.
+
+| Token | Value | Use |
+|---|---|---|
+| `--background` | `oklch(0.17 0.012 60)` | page, header, bottom nav |
+| `--foreground` | `oklch(0.96 0.01 85)` | body text |
+| `--card` | `oklch(0.21 0.014 60)` | cards, dialogs, result rows |
+| `--muted` | `oklch(0.26 0.014 60)` | skeletons, poster fallback, toggles |
+| `--muted-foreground` | `oklch(0.72 0.02 80)` | meta text (>= 4.5:1 on background and card) |
+| `--primary` | `oklch(0.83 0.16 85)` | butter yellow: primary buttons, active tab, focus ring |
+| `--primary-foreground` | `oklch(0.2 0.02 60)` | text on primary |
+| `--destructive` | `oklch(0.58 0.21 25)` | "Retirer" confirm button (white text >= 4.5:1) |
+| `--border` | `oklch(1 0 0 / 12%)` | |
+| `--input` | `oklch(1 0 0 / 16%)` | |
+| `--ring` | = `--primary` | focus ring |
+| `--radius` | `0.75rem` | |
+
+- PWA colors: `theme_color` and `background_color` = the `--background` value as hex
+  (about `#1a1612`; builder converts the oklch once and keeps both in sync). This is the
+  only place a hex value appears (manifest + `<meta name="theme-color">`).
+- Typography: Inter Variable, self-hosted via `@fontsource-variable/inter` (no external
+  font request, so nothing leaks the token via Referer and it's precached). Base 16px;
+  inputs `text-base` (stops iOS zoom on focus). Wordmark "Popcorn" `font-bold text-lg`;
+  card title `text-sm font-medium` (2 lines max); meta `text-xs text-muted-foreground`;
+  section/dialog titles `text-lg font-semibold`.
+- Icons: lucide only (`Popcorn`, `Search`, `List`/`LayoutGrid`, `Plus`, `Check`, `Undo2`,
+  `Trash2`, `CircleOff`, `WifiOff`, `Copy`, `ExternalLink`/`Tv`, `Film`, `TriangleAlert`, `Loader2`, `X`,
+  `Download`, `Share`).
+- **Poster**: aspect ratio 2:3 (`aspect-[2/3]`), `rounded-lg`, `object-cover`, `bg-muted`
+  while loading, `loading="lazy"`, `decoding="async"`. Grid uses the w342 URL. No border,
+  no shadow: posters are the content.
+- **No-poster fallback** (also used when the image errors, e.g. offline and uncached):
+  `bg-muted` block, same 2:3 ratio, centered lucide `Film` (movie) or `Tv` (series) in
+  `text-muted-foreground` size 32, and the title below the icon in `text-xs`, 3 lines
+  max, centered.
+
+### Screen inventory and navigation
+Routes (React Router, `basename` = token):
+| Route | Screen |
+|---|---|
+| `/` | List page (tabs, filter, grid, Stremio card) |
+| `/add` | Add page (search) |
+| `*` | Redirect to `/` |
+
+Global overlays in the shell: name picker dialog, remove-confirm AlertDialog, toasts
+(Sonner), offline banner.
+
+App shell (all screens), mobile 375px:
+```
++--------------------------------+  safe-area-inset-top padding
+| Popcorn                [L Alex]|  header 56px, sticky, bg-background
++--------------------------------+
+| WifiOff Hors ligne, lecture    |  offline banner (only when offline)
+| seule                          |
++--------------------------------+
+|                                |
+|        page content            |
+|                                |
+|  (TMDB attribution footer)     |
++--------------------------------+
+|   [ Ma liste ]   [ + Ajouter ] |  bottom nav 64px, fixed, safe-area-inset-bottom
++--------------------------------+
+```
+- Header: left wordmark link (`Popcorn` icon + text) to `/`; right "name chip" button.
+- Bottom nav (mobile only, `md:hidden`): two equal 64px-high items, icon above label:
+  "Ma liste" (`LayoutGrid`) and "Ajouter" (`Plus`). Active item uses `text-primary`
+  with `aria-current="page"`. Adding is one tap from anywhere, in thumb reach.
+- Laptop (`md`, >= 768px): bottom nav hidden; the header holds the nav as text links
+  ("Ma liste", "Ajouter", the latter a `Button` size sm with `Plus`) between wordmark
+  and name chip. Content in `max-w-6xl mx-auto`, horizontal padding `px-4 md:px-6`
+  and `max(1rem, env(safe-area-inset-left/right))` for landscape phones.
+- Main content bottom padding on mobile: `pb-[calc(64px+env(safe-area-inset-bottom)+1rem)]`
+  so nothing hides behind the nav.
+
+### Screens
+
+#### List page (`/`)
+Wireframe (mobile):
+```
+| Popcorn                [L Alex]|
+| [ À voir 12 ] [ Déjà vus 3 ]   |  Tabs (full width, 2 equal)
+| (Tous) ( Films ) ( Séries )    |  ToggleGroup segmented, h-11
+|                                |
+| +----------+ +----------+      |
+| |  poster  | |  poster  |      |  2 columns
+| |          | |          |      |
+| |[⊘ Pas    | |          |      |  badge bottom-left of poster
+| | dans     | |          |      |
+| | Stremio] | |          |      |
+| +----------+ +----------+      |
+| Dune          Severance        |
+| 2021 · Film   2022 · Série     |
+| Ajouté: Alex  Ajouté: Sam |
+| [✓ Vu    ][🗑] [✓ Vu    ][🗑]   |  h-11 buttons
+|  ...                           |
+| +- Stremio card --------------+|
+| Footer TMDB                    |
+```
+- Layout: grid `grid-cols-2 gap-x-3 gap-y-6`; `sm` (>= 640px) 3 cols; `md` 4; `lg` 5;
+  `xl` 6. Tabs and filter stacked on mobile (gap-3); from `md` on one row: tabs left
+  (auto width), filter right. Tabs list sticks nowhere (header is the only sticky top
+  element) to save vertical space.
+- Title card (`TitleCard`): Poster, then `title` (`text-sm font-medium line-clamp-2`),
+  meta line `{year} · Film|Série` (`text-xs text-muted-foreground`; year omitted if null),
+  then `Ajouté par {name}` (same style, omitted if `added_by` is null). Then an action
+  row `flex gap-2 mt-2`:
+  - Primary action `Button variant="secondary"` `h-11 flex-1`, icon + label:
+    in "À voir" tab `Check` + "Vu"; in "Déjà vus" tab `Undo2` + "À revoir"
+    (moves back to À voir). Accessible name includes the title (see Accessibility).
+  - `Button variant="ghost" size="icon"` `h-11 w-11` with `Trash2`, opens remove confirm.
+- "Pas dans Stremio" `Badge` (variant outline, `bg-background/85 backdrop-blur`,
+  `text-xs`, `CircleOff` size 12) positioned `absolute bottom-2 left-2` on the poster when
+  `imdb_id` is null. Wrapped with `title` and the card's accessible description:
+  "Ce titre n'apparaît pas dans le catalogue Stremio."
+- Tabs: Shadcn `Tabs`. Labels show counts, e.g. "À voir · 12" (counts come from the two
+  status queries, both fetched, so tab switches are instant and both are available offline).
+  Active tab: `data-[state=active]:text-primary` with a 2px `bg-primary` underline.
+- Filter: Shadcn `ToggleGroup type="single"` (needs `@radix-ui/react-toggle-group` via
+  shadcn add) with three items "Tous" / "Films" / "Séries", default "Tous"; a deselect
+  click is ignored (always one value). Filtering is client side; filter is kept in the
+  URL search param `?type=movie|series` so it survives reload; tab in `?tab=watched`.
+- Interactions:
+  - **Marquer vu** (optimistic): `useMutation` PATCH with `onMutate` that cancels queries,
+    snapshots both lists, moves the title from one list to the other in the cache
+    (card disappears with a 150ms fade/scale, `motion-reduce:transition-none`). On error:
+    restore the snapshot + error toast. On settle: invalidate `['titles']`. Success toast
+    with an "Annuler" action (calls the reverse PATCH), 5s: "« Dune » est dans Déjà vus".
+  - **Retirer**: tap trash → `AlertDialog` (see copy). Confirm → optimistic removal from
+    cache, DELETE, toast "« Dune » retiré de la liste". Error → restore + toast. Cancel and
+    Escape close it and return focus to the trash button.
+  - Poster and title are not interactive (no detail page in the MVP).
+- Stremio card sits after the grid (see below), then footer.
+
+#### Stremio card (`StremioCard`, bottom of list page)
+Wireframe:
+```
++--------------------------------+
+| [Tv]  Voir la liste dans Stremio
+| Ajoute Popcorn à Stremio pour la
+| retrouver sur l'écran d'accueil.
+| [ Installer dans Stremio ]      |  Button primary, h-11, full width mobile
+| https://…/stremio/manifest… [Copier]
+| Après un ajout, rafraîchis      |
+| l'accueil de Stremio.           |
++--------------------------------+
+```
+- Components: Shadcn `Card`, `Button` (rendered `asChild` as `<a href="stremio://…">`),
+  `Input readOnly` + `Button variant="outline"`. `max-w-xl` on larger screens, left aligned.
+- Install href: take `stremioManifestUrl` from `/api/config` and replace the leading
+  `https://` (or `http://`) with `stremio://`. The `Input` shows the https URL
+  (`text-xs font-mono`, truncated, `aria-label="Adresse de l'addon"`, selects all on focus).
+- Copy: `navigator.clipboard.writeText`; on success the button turns to `Check` +
+  "Copié !" for 2s (`aria-live="polite"` region announces it) and a toast is NOT used.
+  If the Clipboard API is unavailable or rejects: select the input text and show inline
+  "Sélectionne et copie l'adresse." under the field.
+- Not disabled offline (nothing is written to the server).
+- Loading (config pending): the card shows two `Skeleton` bars in place of the button and
+  input. Config error: card hidden (list still works).
+
+#### Add page (`/add`)
+Wireframe (mobile):
+```
+| Popcorn                [L Alex]|
+| [🔍 Un film, une série…    (x)]|  Input h-12, text-base, sticky below header
+|                                |
+| +----+ Dune                    |
+| |post| 2021 · Film             |
+| |er  |            [ Ajouter ]  |  Button primary h-11 min-w-[7rem]
+| +----+                         |
+| +----+ Dune : Deuxième partie  |
+| |post| 2024 · Film             |
+| |er  |        [✓ Dans la liste]|  disabled, muted
+| +----+                         |
+|   ...                          |
+```
+- Layout: search field in a sticky bar (`sticky top-14`, `bg-background`, `pb-3`) so it
+  stays reachable while scrolling results. Results are a vertical list of rows
+  (`ul`, `gap-3`), not a grid, so title/year read clearly. Row = `Card`-like
+  `flex gap-3 p-2 rounded-lg bg-card`: poster 56x84 (`aspect-[2/3] w-14`, same
+  fallback component), text column (`title` `font-medium line-clamp-2`, meta
+  `{year} · Film|Série`), action button right-aligned, vertically centered.
+  Laptop: `max-w-2xl mx-auto`.
+- Search input: `autoFocus` on mount (opens the keyboard: fastest path to add),
+  `type="search"`, `enterKeyHint="search"`, `autoComplete="off"`, left `Search` icon,
+  clear button (`X`, 44x44 hit area, `aria-label="Effacer la recherche"`) when non-empty.
+  Debounce 350ms, minimum 2 characters, trimmed, max 100 (`maxLength`). Query key
+  `['search', q]` with `placeholderData: keepPreviousData` and `staleTime` 60s. Pressing
+  Enter searches immediately.
+- Add button states per row (local to the mutation, keyed by tmdbId+type):
+  1. `Ajouter` (primary, `Plus` icon) →
+  2. tap: `Loader2` spinner + "Ajout…" (disabled; TMDB details are fetched server-side,
+     can take ~1s) →
+  3. success: `Check` + "Dans la liste" (`variant="secondary"`, disabled,
+     `text-muted-foreground`), cache for `['search']` patched so `inList` is true, and
+     `['titles']` invalidated. Brief toast "« Dune » ajouté à À voir" with action
+     "Voir la liste" (link to `/`).
+  4. 409 conflict: treated as success state, toast "Déjà dans la liste".
+  5. other error: button returns to `Ajouter`, toast "Impossible d'ajouter « Dune ». Réessaie."
+- `addedBy` is the stored member name; if none is set the name picker is open and
+  blocking, so it can't be missing.
+- Results show up to 20 items as returned by the server; no pagination.
+
+#### Name picker (`NamePickerDialog`)
+Wireframe:
+```
++--------------------------------+
+|        Qui es-tu ?             |
+|  On saura qui a ajouté quoi.   |
+|  [        Baptiste          ]  |  Button outline, h-14, full width
+|  [        Alex              ]  |
++--------------------------------+
+```
+- Shadcn `Dialog`. **First visit** (no valid `popcorn:member` in localStorage, or stored
+  name not in `config.members`): opens automatically, non-dismissible (no close X,
+  `onInteractOutside`/`onEscapeKeyDown` prevented). One `Button variant="outline"
+  size="lg"` (`h-14 text-base`) per member from `/api/config`. Tap = save + close, no
+  confirm step. Focus lands on the first button.
+- **Switching later**: the header "name chip" (`Button variant="ghost"`, `h-11`, circle with
+  the initial in `bg-primary text-primary-foreground` + name, `max-w-[9rem] truncate`,
+  `aria-label="Changer de personne, actuellement Alex"`) reopens the same dialog in
+  dismissible mode (close X + "Annuler" + Escape). The current name is shown with a
+  `Check` and `aria-pressed`. Title stays "Qui es-tu ?".
+- Storage: `localStorage['popcorn:member']`, exposed by a `MemberProvider` context
+  (`useMember()`). It's device-local and not secret.
+- Loading (config pending): dialog not shown; the shell renders skeleton content.
+  Config error: toast + `ErrorState` on the page; picker waits for config.
+
+#### Offline banner (`OfflineBanner`)
+- Placed directly under the header (inside the sticky header wrapper so it stays visible),
+  full width, `bg-muted text-sm`, `WifiOff` icon, `role="status"`. Text: "Hors ligne :
+  lecture seule". Shown when `navigator.onLine` is false (`online`/`offline` events,
+  `useOnline()` hook) or when a request fails with a network error.
+- Effects while offline: "Vu/À revoir" and "Retirer" buttons and all "Ajouter" buttons
+  get `disabled`; the search input is disabled; the Stremio card still works.
+- When back online: banner disappears, queries refetch (`onlineManager` from TanStack
+  Query handles this), toast "Connexion rétablie" (2s).
+
+#### Footer (`Footer`)
+- After content, above the bottom nav padding: centered, `text-xs text-muted-foreground`,
+  TMDB logo (official "short" SVG from TMDB's brand assets, `h-3`, placed in
+  `src/web/public/tmdb.svg`) and the sentence. The logo is a link to TMDB with
+  `rel="noreferrer"` `target="_blank"`, `aria-label="TMDB"`. Text:
+  "Ce produit utilise l'API TMDB mais n'est ni approuvé ni certifié par TMDB."
+  Laptop: same, left aligned in the container.
+
+#### App icon
+- Concept: a flat popcorn bucket, front-on: cream and red vertical stripes, three or four
+  fluffy butter-yellow (`--primary`) kernel clouds overflowing the top, on a near-black
+  (`--background`) square. Simple shapes only, readable at 48px.
+- Files from one SVG: 192, 512 (any), 512 maskable (background full-bleed, artwork
+  inside the central 80% safe zone), 180 apple-touch-icon, favicon.svg.
+- `index.html`: `<meta name="viewport" content="width=device-width, initial-scale=1,
+  viewport-fit=cover">`, `theme-color`, `apple-mobile-web-app-capable=yes`,
+  `apple-mobile-web-app-status-bar-style=black-translucent`,
+  `apple-mobile-web-app-title=Popcorn`.
+- Standalone mode: `black-translucent` lets content run under the iOS status bar, so the
+  header gets `pt-[env(safe-area-inset-top)]` (its own `bg-background`, total height
+  56px + inset), the bottom nav gets `pb-[env(safe-area-inset-bottom)]`, and `body` has
+  `min-h-dvh bg-background`. Sticky search bar offset on the add page is
+  `top-[calc(3.5rem+env(safe-area-inset-top))]`. Toasts offset: mobile bottom
+  `calc(64px+env(safe-area-inset-bottom)+0.5rem)`. Add `-webkit-tap-highlight-color:
+  transparent` and `touch-action: manipulation` on interactive elements. Android splash
+  = `background_color` + icon, nothing to design.
+
+#### Install hint
+`InstallHint`, a dismissible banner that invites installing the PWA. Mobile only.
+Wireframe (mobile, Android variant):
+```
+| Popcorn                [L Alex]|
+| +----------------------------+ |
+| | [Download] Installer l'appli (X)|
+| | Accès direct depuis l'écran     |
+| | d'accueil, sans navigateur.     |
+| | [ Installer ]                   |
+| +----------------------------+ |
+| [ À voir 12 ] [ Déjà vus 3 ]   |
+```
+- Placement: top of the list page content, above the tabs, as a `Card` (`bg-card`,
+  `border`, `p-4`, `rounded-xl`) with a `Download` icon in `text-primary`. Not on the
+  add page (nothing may get between the user and the search field), not a toast, not
+  blocking. Hidden at `md` and up (laptop use is secondary).
+- Visibility rules, all must hold: not installed (`!matchMedia('(display-mode: standalone)').matches`
+  and `navigator.standalone !== true`), not dismissed (`localStorage['popcorn:install-dismissed']`
+  absent), and either the platform can install (Android/Chromium: a captured
+  `beforeinstallprompt` event exists) or the device is iOS Safari (user agent iPhone/iPad
+  incl. iPadOS touch Mac, and not Chrome/Firefox iOS: `CriOS`/`FxiOS`/`EdgiOS`
+  absent). Other browsers (desktop Firefox, etc.) never see it. Also hidden offline and
+  while the name picker is open. Shown only after the list has loaded, so it never
+  competes with the first paint.
+- **Android/Chromium**: capture the event in `useInstallPrompt()` (`preventDefault()`,
+  keep it in state). The banner's "Installer" button (`Button`, `h-11`, full width on
+  mobile) calls `event.prompt()`; on `userChoice` accepted → banner disappears (also on
+  `appinstalled`); on dismissed → hide for this session only (do not persist).
+- **iOS Safari**: no API. The same card shows an `ol` of two steps instead of the button,
+  with the lucide `Share` icon inline in step 1 (`aria-hidden`, text carries the meaning):
+  "1. Touche Partager (icône)" and "2. Choisis Sur l'écran d'accueil". No install button.
+  Optional hint "(dans Safari)" only; no arrow animation.
+- **Dismiss**: `X` icon button top-right of the card (`h-11 w-11`, `aria-label="Masquer"`).
+  Writes `localStorage['popcorn:install-dismissed'] = '1'` (permanent; device-local).
+  Leaves the card with a 150ms fade (`motion-reduce:transition-none`) and moves focus to
+  the first tab so focus is not lost.
+- Auto-hide: when the app runs standalone, never render; when `appinstalled` fires, remove
+  and set the dismissed flag.
+- a11y: card is a `section` with `aria-labelledby` on its title; step list is a real
+  `ol`; button and dismiss are normal focusable controls placed in DOM order after the
+  title; no live-region announcement (it's static content, not an alert).
+- States: no loading or error states (purely client-side). Offline: hidden.
+
+### States
+
+List page:
+- Loading: grid of 6 `Skeleton` cards (2:3 block + two text bars + 44px bar); tabs and
+  filter render immediately with counts omitted. Pulse disabled with `motion-reduce:animate-none`.
+- Empty "À voir", filter Tous: `EmptyState` centered, big `Popcorn` icon (size 48,
+  `text-primary`), title "Rien à voir pour l'instant", text "Ajoute le premier film ou la
+  première série.", `Button` "Ajouter un titre" → `/add`.
+- Empty "Déjà vus": `Check` icon, "Rien de vu pour l'instant", "Les titres que vous
+  marquez comme vus arrivent ici."
+- Empty because of the filter (list has items but none match): "Aucun film ici" /
+  "Aucune série ici" with a `Button variant="link"` "Tout afficher" (sets filter to Tous).
+- Error: `ErrorState` with `TriangleAlert`, "Impossible de charger la liste.", text
+  "Vérifie ta connexion et réessaie.", `Button` "Réessayer" (refetch). If cached data
+  exists, keep showing it plus the toast "Liste non actualisée".
+- Success: optimistic changes + toasts as described.
+- Slow network / offline: cached list shown (network-first), offline banner, mutations
+  disabled. Offline with no cache: `WifiOff` icon, "Hors ligne", "Ouvre l'appli une fois
+  avec du réseau pour voir ta liste ici."
+- Posters that fail to load switch to the fallback block.
+
+Add page:
+- Idle (empty field): `Search` icon + "Cherche un film ou une série" / "Tape au moins 2
+  lettres." centered under the field.
+- Loading: 5 skeleton rows (56x84 block + two bars + 44px button block). When refining a
+  previous query, keep old rows at `opacity-60` instead of skeletons (no flicker).
+- After 3s still loading: line under the field "La recherche prend du temps…" (`role="status"`).
+- Empty: "Aucun résultat pour « {q} »" / "Vérifie l'orthographe ou essaie le titre original."
+- Error: `ErrorState` inline "La recherche a échoué." + `Button` "Réessayer".
+- Success: per-row button states above.
+- Offline: field disabled, placeholder unchanged, centered `WifiOff` "Hors ligne" /
+  "La recherche a besoin d'une connexion." (search is never cached.)
+
+Name picker / Stremio card / Install hint: see their sections.
+
+### Copy
+| Key | Text |
+|-----|------|
+| app.name | Popcorn |
+| nav.list | Ma liste |
+| nav.add | Ajouter |
+| nav.skip | Aller au contenu |
+| header.member_aria | Changer de personne, actuellement {name} |
+| offline.banner | Hors ligne : lecture seule |
+| offline.back | Connexion rétablie |
+| list.tab_to_watch | À voir |
+| list.tab_watched | Déjà vus |
+| list.filter_all | Tous |
+| list.filter_movies | Films |
+| list.filter_series | Séries |
+| list.type_movie | Film |
+| list.type_series | Série |
+| list.added_by | Ajouté par {name} |
+| list.mark_watched | Vu |
+| list.mark_unwatched | À revoir |
+| list.mark_watched_aria | Marquer « {title} » comme vu |
+| list.mark_unwatched_aria | Remettre « {title} » dans À voir |
+| list.remove_aria | Retirer « {title} » de la liste |
+| list.no_stremio | Pas dans Stremio |
+| list.no_stremio_desc | Ce titre n'apparaît pas dans le catalogue Stremio. |
+| list.toast_watched | « {title} » est dans Déjà vus |
+| list.toast_unwatched | « {title} » est de nouveau dans À voir |
+| list.toast_undo | Annuler |
+| list.toast_removed | « {title} » retiré de la liste |
+| list.toast_stale | Liste non actualisée |
+| list.error_update | Impossible de mettre à jour « {title} ». Réessaie. |
+| list.error_remove | Impossible de retirer « {title} ». Réessaie. |
+| remove.title | Retirer « {title} » ? |
+| remove.body | Ce titre disparaîtra de la liste pour vous deux. |
+| remove.cancel | Annuler |
+| remove.confirm | Retirer |
+| empty.to_watch_title | Rien à voir pour l'instant |
+| empty.to_watch_body | Ajoute le premier film ou la première série. |
+| empty.to_watch_cta | Ajouter un titre |
+| empty.watched_title | Rien de vu pour l'instant |
+| empty.watched_body | Les titres que vous marquez comme vus arrivent ici. |
+| empty.filter_movies | Aucun film ici |
+| empty.filter_series | Aucune série ici |
+| empty.filter_reset | Tout afficher |
+| error.list_title | Impossible de charger la liste. |
+| error.list_body | Vérifie ta connexion et réessaie. |
+| error.retry | Réessayer |
+| offline.no_cache_title | Hors ligne |
+| offline.no_cache_body | Ouvre l'appli une fois avec du réseau pour voir ta liste ici. |
+| add.placeholder | Un film, une série… |
+| add.search_aria | Rechercher un film ou une série |
+| add.clear_aria | Effacer la recherche |
+| add.idle_title | Cherche un film ou une série |
+| add.idle_body | Tape au moins 2 lettres. |
+| add.slow | La recherche prend du temps… |
+| add.empty_title | Aucun résultat pour « {q} » |
+| add.empty_body | Vérifie l'orthographe ou essaie le titre original. |
+| add.error | La recherche a échoué. |
+| add.offline_title | Hors ligne |
+| add.offline_body | La recherche a besoin d'une connexion. |
+| add.button | Ajouter |
+| add.button_aria | Ajouter « {title} » à la liste |
+| add.adding | Ajout… |
+| add.in_list | Dans la liste |
+| add.toast_added | « {title} » ajouté à À voir |
+| add.toast_view | Voir la liste |
+| add.toast_exists | Déjà dans la liste |
+| add.toast_error | Impossible d'ajouter « {title} ». Réessaie. |
+| member.title | Qui es-tu ? |
+| member.body | On saura qui a ajouté quoi. |
+| member.cancel | Annuler |
+| stremio.title | Voir la liste dans Stremio |
+| stremio.body | Ajoute Popcorn à Stremio pour la retrouver sur l'écran d'accueil. |
+| stremio.install | Installer dans Stremio |
+| stremio.url_aria | Adresse de l'addon |
+| stremio.copy | Copier |
+| stremio.copied | Copié ! |
+| stremio.copy_fallback | Sélectionne et copie l'adresse. |
+| stremio.hint | Après un ajout, rafraîchis l'accueil de Stremio. |
+| install.title | Installer l'appli |
+| install.body | Accès direct depuis l'écran d'accueil, sans navigateur. |
+| install.button | Installer |
+| install.ios_step1 | Touche Partager dans la barre de Safari. |
+| install.ios_step2 | Choisis Sur l'écran d'accueil. |
+| install.dismiss_aria | Masquer |
+| poster.alt | Affiche de {title} ({year}) |
+| poster.alt_no_year | Affiche de {title} |
+| footer.tmdb | Ce produit utilise l'API TMDB mais n'est ni approuvé ni certifié par TMDB. |
+| toast.close_aria | Fermer |
+
+### Accessibility
+- Focus order follows reading order: skip link ("Aller au contenu", visible on focus) →
+  wordmark → (laptop: nav links) → name chip → install hint (mobile, when shown) → tabs →
+  filter → each card's action buttons in grid order → Stremio card → footer link →
+  (mobile) bottom nav. Bottom nav is last in the DOM but fixed at the bottom; this is
+  acceptable for two items.
+- Visible focus everywhere: Shadcn default `focus-visible:ring-2 ring-ring ring-offset-2
+  ring-offset-background` (butter yellow on near-black, high contrast). Never remove outlines.
+- Touch targets >= 44px: all buttons `h-11` (44px) or taller, icon buttons `h-11 w-11`,
+  bottom nav items 64px, tabs and toggle items `h-11`, clear-search 44x44 hit area.
+  Minimum 8px gap between adjacent targets (card actions use `gap-2`).
+- Labels: icon-only buttons have `aria-label` (trash, clear, name chip, install dismiss;
+  copy has visible text). Repeated "Vu"/trash buttons carry the title in their accessible
+  name (see Copy). Tabs and toggle group have `aria-label` ("Statut", "Type").
+- Alt text: posters `alt="Affiche de {title} ({year})"`; the no-poster fallback shows the
+  title visibly, its icon is `aria-hidden`, and the fallback has no extra alt.
+- Contrast: `--muted-foreground` >= 4.5:1 on `--background` and `--card`; `--primary-foreground`
+  on `--primary` >= 7:1; destructive button white text >= 4.5:1. Don't convey the
+  "Dans la liste" state by color alone (check icon + text).
+- Dialogs: Radix `Dialog`/`AlertDialog` trap focus, close on Escape (except the first-visit
+  name picker), and return focus to the trigger. AlertDialog default focus on "Annuler"
+  (safe default).
+- Live regions: offline banner `role="status"`; Sonner toasts are polite; copy feedback and
+  slow-search note use `aria-live="polite"`. The results list announces
+  "{n} résultats" in a visually hidden `role="status"` node.
+- Reduced motion: wrap transitions in `motion-reduce:transition-none`, skeletons
+  `motion-reduce:animate-none`, no card exit animation, Sonner/Radix animations reduced
+  via a global `@media (prefers-reduced-motion: reduce)` rule setting
+  `animation-duration` and `transition-duration` to ~0.01ms.
+- `lang="fr"` on `<html>`. Page `<title>` per route ("Popcorn", "Ajouter · Popcorn");
+  each page has an `h1` (visually hidden: "Ma liste", "Ajouter un titre").
+
+### Components and files for the builder (`src/web/`)
+Shadcn primitives to add (`components/ui/`): `button`, `tabs`, `toggle-group`, `dialog`,
+`alert-dialog`, `input`, `card`, `badge`, `skeleton`, `sonner`.
+
+Custom (`components/`):
+- `app_shell.tsx`: header, offline banner, outlet, footer, bottom nav, skip link, toaster.
+- `header.tsx` (wordmark, desktop nav, `member_chip.tsx`), `bottom_nav.tsx`,
+  `offline_banner.tsx`, `footer.tsx`.
+- `name_picker_dialog.tsx` (built on `Dialog`).
+- `poster.tsx` (img + fallback + alt; props: `posterUrl`, `title`, `year`, `type`).
+- `title_card.tsx` (built on plain markup + `Button`/`Badge`), `title_grid.tsx`,
+  `title_grid_skeleton.tsx`, `remove_dialog.tsx` (built on `AlertDialog`).
+- `search_result_row.tsx` with its Add button state machine.
+- `stremio_card.tsx` (built on `Card`).
+- `install_hint.tsx` (built on `Card` + `Button`; rendered at the top of `list_page.tsx`).
+- `empty_state.tsx`, `error_state.tsx` (shared icon + title + body + optional action).
+
+Pages (`pages/`): `list_page.tsx`, `add_page.tsx`.
+Lib (`lib/`): `api.ts` (hooks: `useTitles(status)`, `useSearch(q)`, `useConfig()`,
+`useAddTitle()`, `useSetStatus()`, `useRemoveTitle()` with the optimistic logic),
+`member.tsx` (`MemberProvider`, `useMember`), `use_online.ts`, `use_debounced_value.ts`,
+`use_install_prompt.ts` (captures `beforeinstallprompt`, `appinstalled`, standalone and iOS
+detection, dismissed flag),
+`copy.ts` (French strings keyed as in the Copy table, plain object, not an i18n lib).
+Other: `index.css` (tokens + reduced-motion rule), `public/tmdb.svg`, `public/` icons.
+
+### Decisions (answered by user, 2026-10-31)
+- Dark only: confirmed.
+- Poster-tap detail view: not in the MVP, tracked in `.claude/plans/backlog.md`.
+- TMDB logo: official "blue_short" SVG downloaded to `src/web/public/tmdb.svg`.
+- For the planner/builder: `/api/titles` and `/api/search` must return a ready `posterUrl`
+  (w342, or null) plus `year`, `type`, `inList`, `imdbId`/`hasImdb`, `addedBy`; `/api/config`
+  returns `members` and `stremioManifestUrl` (https). The UI derives `stremio://`.
+- PWA "Installer l'appli" hint: yes, in the MVP (see "Install hint" above).
 
 ## Risks and open questions
 - **Domain/hostname** for the tunnel (e.g. `popcorn.<domain>`).
