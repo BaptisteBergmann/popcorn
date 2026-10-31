@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { Hono } from 'hono';
+import { HTTPException } from 'hono/http-exception';
 import { secureHeaders } from 'hono/secure-headers';
 import { logger } from '@server/logger';
 import { api } from '@server/routes/api';
@@ -72,7 +73,8 @@ app.use(
       defaultSrc: ["'self'"],
       imgSrc: ["'self'", 'https://image.tmdb.org', 'data:'],
       styleSrc: ["'self'", "'unsafe-inline'"],
-      connectSrc: ["'self'"],
+      // Workbox's cache-first poster fetch runs in the SW, which is governed by connect-src.
+      connectSrc: ["'self'", 'https://image.tmdb.org'],
       workerSrc: ["'self'"],
       manifestSrc: ["'self'"],
       frameAncestors: ["'none'"],
@@ -93,6 +95,10 @@ app.use(async (c, next) => {
 app.route('/:token', gated);
 app.notFound((c) => c.body(null, 404));
 app.onError((err, c) => {
+  // zValidator throws HTTPException(400) on malformed JSON; keep client errors out of the 500 path.
+  if (err instanceof HTTPException && err.status < 500) {
+    return c.json({ error: 'Invalid input' }, err.status);
+  }
   logger.child({ function: 'onError' }).error({ err: err.message }, 'Unhandled error');
   return c.json({ error: 'Internal error' }, 500);
 });
