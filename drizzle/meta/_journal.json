@@ -15,6 +15,13 @@
       "when": 1793485429436,
       "tag": "0001_clumsy_human_torch",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793485824582,
+      "tag": "0002_productive_scrambler",
+      "breakpoints": true
     }
   ]
 }

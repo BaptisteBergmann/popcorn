@@ -5,7 +5,7 @@ import type { Context } from 'hono';
 import { z } from 'zod';
 import { TITLE_STATUSES, TITLE_TYPES } from '@shared/constants';
 import { db } from '@server/db';
-import { members, titles, type TitleRow } from '@server/db/schema';
+import { memberKey, members, titles, type TitleRow } from '@server/db/schema';
 import { env } from '@server/env';
 import { logger } from '@server/logger';
 import { getDetails, posterUrl, searchMulti, TmdbError } from '@server/tmdb';
@@ -58,7 +58,7 @@ export const api = new Hono()
     const rows = db
       .select({ id: members.id, name: members.name })
       .from(members)
-      .orderBy(sql`lower(${members.name})`, asc(members.id))
+      .orderBy(asc(members.nameKey), asc(members.id))
       .all();
     return c.json(rows);
   })
@@ -66,7 +66,7 @@ export const api = new Hono()
     const { name } = c.req.valid('json');
     const created = db
       .insert(members)
-      .values({ name, createdAt: Date.now() })
+      .values({ name, nameKey: memberKey(name), createdAt: Date.now() })
       .onConflictDoNothing()
       .returning({ id: members.id, name: members.name })
       .get();
@@ -106,7 +106,7 @@ export const api = new Hono()
       const member = db
         .select({ name: members.name })
         .from(members)
-        .where(sql`lower(${members.name}) = lower(${addedBy})`)
+        .where(eq(members.nameKey, memberKey(addedBy)))
         .get();
       if (!member) return c.json({ error: 'Unknown member' }, 400);
 
