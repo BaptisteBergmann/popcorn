@@ -2,6 +2,7 @@
 
 ## 2026-10-31
 
+- `264950e` fix(db): recompute member keys at startup and share memberKey with web
 - `baab8d3` docs: list /api/members in the SW caching rules
 - `1227ff1` fix(web): look up existing member in fresh data on 409
 - `b05a6cb` style(api): drop unused sql import
