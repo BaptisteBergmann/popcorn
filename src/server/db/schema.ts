@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import { integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 // Relative path on purpose: drizzle-kit loads this file without tsconfig path aliases.
 import { TITLE_STATUSES, TITLE_TYPES } from '../../shared/constants';
@@ -26,3 +27,14 @@ export const titles = sqliteTable(
 
 export type TitleRow = typeof titles.$inferSelect;
 export type NewTitleRow = typeof titles.$inferInsert;
+
+export const members = sqliteTable(
+  'members',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    name: text('name').notNull(),
+    createdAt: integer('created_at').notNull(),
+  },
+  // Case-insensitive uniqueness: "lea" and "Léa"-style duplicates differing only by case are rejected.
+  (t) => [uniqueIndex('members_name_lower_unique').on(sql`lower(${t.name})`)],
+);

@@ -9,9 +9,9 @@ import { posterUrl } from '@server/tmdb';
 // Bump `version` whenever catalogs or other manifest fields change. Never change `id`.
 const MANIFEST = {
   id: 'local.popcorn.watchlist',
-  version: '1.0.0',
+  version: '1.0.1',
   name: 'Popcorn',
-  description: 'La liste de films et séries de Alex & Sam',
+  description: 'Notre liste de films et séries à voir',
   resources: ['catalog'],
   types: ['movie', 'series'],
   idPrefixes: ['tt'],

@@ -8,6 +8,13 @@
       "when": 1793485060244,
       "tag": "0000_wakeful_smiling_tiger",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1793485429436,
+      "tag": "0001_clumsy_human_torch",
+      "breakpoints": true
     }
   ]
 }

@@ -11,16 +11,6 @@ const schema = z.object({
     .url()
     .transform((v) => v.replace(/\/+$/, '')),
   DATABASE_PATH: z.string().min(1).default('/data/popcorn.db'),
-  MEMBERS: z
-    .string()
-    .min(1)
-    .transform((v) =>
-      v
-        .split(',')
-        .map((m) => m.trim())
-        .filter(Boolean),
-    )
-    .pipe(z.array(z.string().max(30)).min(1)),
   PORT: z.coerce.number().int().min(1).max(65535).default(8787),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 });

@@ -1,11 +1,11 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
-import { useConfig } from '@web/lib/api';
+import { useMembers, type MemberDto } from '@web/lib/api';
 
 const STORAGE_KEY = 'popcorn:member';
 
 type MemberContextValue = {
   member: string | null;
-  members: string[];
+  members: MemberDto[];
   /** Config loaded but no valid stored name: the picker must open, non-dismissible. */
   mustPick: boolean;
   pickerOpen: boolean;
@@ -24,13 +24,13 @@ function readStored(): string | null {
 }
 
 export function MemberProvider({ children }: { children: ReactNode }) {
-  const config = useConfig();
+  const membersQuery = useMembers();
   const [stored, setStored] = useState<string | null>(readStored);
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  const members = config.data?.members ?? [];
-  // A stored name that left MEMBERS is treated as missing.
-  const member = stored && members.includes(stored) ? stored : null;
+  const members = membersQuery.data ?? [];
+  // A stored name that no longer exists in the members list is treated as missing.
+  const member = stored && members.some((m) => m.name === stored) ? stored : null;
 
   const setMember = (name: string) => {
     try {
@@ -47,7 +47,7 @@ export function MemberProvider({ children }: { children: ReactNode }) {
       value={{
         member,
         members,
-        mustPick: config.isSuccess && member === null,
+        mustPick: membersQuery.isSuccess && member === null,
         pickerOpen,
         setPickerOpen,
         setMember,

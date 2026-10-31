@@ -1,11 +1,11 @@
 import { zValidator } from '@hono/zod-validator';
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { z } from 'zod';
 import { TITLE_STATUSES, TITLE_TYPES } from '@shared/constants';
 import { db } from '@server/db';
-import { titles, type TitleRow } from '@server/db/schema';
+import { members, titles, type TitleRow } from '@server/db/schema';
 import { env } from '@server/env';
 import { logger } from '@server/logger';
 import { getDetails, posterUrl, searchMulti, TmdbError } from '@server/tmdb';
@@ -44,16 +44,35 @@ function toDto(row: TitleRow) {
   };
 }
 
-const memberSchema = z.enum(env.MEMBERS as [string, ...string[]]);
+const memberName = z.string().trim().min(1).max(30);
 const idParam = z.object({ id: z.coerce.number().int().positive() });
 
 export const api = new Hono()
   .get('/config', (c) => {
     const token = c.req.param('token');
     return c.json({
-      members: env.MEMBERS,
       stremioManifestUrl: `${env.SITE_URL}/${token}/stremio/manifest.json`,
     });
+  })
+  .get('/members', (c) => {
+    const rows = db
+      .select({ id: members.id, name: members.name })
+      .from(members)
+      .orderBy(sql`lower(${members.name})`, asc(members.id))
+      .all();
+    return c.json(rows);
+  })
+  .post('/members', zValidator('json', z.object({ name: memberName }), onInvalid), (c) => {
+    const { name } = c.req.valid('json');
+    const created = db
+      .insert(members)
+      .values({ name, createdAt: Date.now() })
+      .onConflictDoNothing()
+      .returning({ id: members.id, name: members.name })
+      .get();
+    if (!created) return c.json({ error: 'Name already exists' }, 409);
+    logger.child({ function: 'addMember', id: created.id }).info('Member added');
+    return c.json(created, 201);
   })
   .get(
     '/titles',
@@ -76,13 +95,20 @@ export const api = new Hono()
       z.object({
         tmdbId: z.number().int().positive(),
         type: z.enum(TITLE_TYPES),
-        addedBy: memberSchema,
+        addedBy: memberName,
       }),
       onInvalid,
     ),
     async (c) => {
       const { tmdbId, type, addedBy } = c.req.valid('json');
       const contextLogger = logger.child({ function: 'addTitle', tmdbId, type });
+
+      const member = db
+        .select({ name: members.name })
+        .from(members)
+        .where(sql`lower(${members.name}) = lower(${addedBy})`)
+        .get();
+      if (!member) return c.json({ error: 'Unknown member' }, 400);
 
       const exists = db
         .select({ id: titles.id })
@@ -105,7 +131,7 @@ export const api = new Hono()
       // The unique index also guards the race between the check above and this insert.
       const inserted = db
         .insert(titles)
-        .values({ ...details, addedBy, addedAt: Date.now() })
+        .values({ ...details, addedBy: member.name, addedAt: Date.now() })
         .onConflictDoNothing()
         .returning()
         .get();

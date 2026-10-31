@@ -29,6 +29,7 @@ export class ApiError extends Error {
 export type TitleDto = InferResponseType<typeof client.api.titles.$get, 200>[number];
 export type SearchHitDto = InferResponseType<typeof client.api.search.$get, 200>[number];
 export type ConfigDto = InferResponseType<typeof client.api.config.$get, 200>;
+export type MemberDto = InferResponseType<typeof client.api.members.$get, 200>[number];
 
 // A thrown non-ApiError is a network failure (fetch rejects); it drives the offline banner.
 const onNetworkError = (error: unknown) => {
@@ -59,6 +60,30 @@ export function useConfig() {
       if (!res.ok) throw new ApiError(res.status);
       return res.json();
     },
+  });
+}
+
+export function useMembers() {
+  return useQuery({
+    queryKey: ['members'],
+    queryFn: async (): Promise<MemberDto[]> => {
+      const res = await client.api.members.$get();
+      if (!res.ok) throw new ApiError(res.status);
+      return res.json();
+    },
+  });
+}
+
+export function useAddMember() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (name: string) => {
+      const res = await client.api.members.$post({ json: { name } });
+      if (!res.ok) throw new ApiError(res.status);
+      return res.json();
+    },
+    // Also on 409: the list may be stale and the caller will look the name up in it.
+    onSettled: () => qc.invalidateQueries({ queryKey: ['members'] }),
   });
 }
 
