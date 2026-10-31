@@ -1,0 +1,28 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next/
+/out/
+/build
+next-env.d.ts
+*.tsbuildinfo
+
+# local env / config
+mise.toml
+!mise.toml.example
+.env*
+
+# sqlite
+/data/
+*.db
+*.db-*
+
+# claude local state
+.claude/worktrees/
+.claude/scheduled_tasks.lock
+
+# misc
+.DS_Store
+*.pem
+*.log
