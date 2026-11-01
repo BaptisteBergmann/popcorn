@@ -2,6 +2,7 @@
 
 ## 2026-11-01
 
+- `504b6ef` feat(oauth): add server-rendered consent page
 - `66975f8` feat(oauth): add metadata, registration, token and revoke endpoints
 - `cf9a28e` build: add MCP_CONNECT_CODE to the env template and compose file
 - `7632810` feat(oauth): add token, client and redirect helpers
