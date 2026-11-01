@@ -2,6 +2,7 @@
 
 ## 2026-10-31
 
+- `2a57ebc` fix(web): flip inList only in the adder's cached searches
 - `56c25ff` feat(web): add and reveal surprise titles
 - `0c27a1b` feat(web): hooks for surprise titles
 - `1f32bd1` style(server): restore repo quote style in api and stremio routes
