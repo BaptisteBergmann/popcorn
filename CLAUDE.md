@@ -63,6 +63,17 @@ secret URL token, no accounts. Follow the rules below for all code suggestions.
 - Stremio responses send `Access-Control-Allow-Origin: *` (Stremio routes only) and a short `Cache-Control`.
 - Bump the manifest `version` when catalogs or manifest fields change. Never change the manifest `id`.
 
+### MCP
+
+MCP tools never return, change or create a hidden title. All tool handlers go through `run()`.
+
+Connecting (needs `MCP_CONNECT_CODE` set on the server; the sign-in page asks for it, then which member you are):
+
+- Claude Code: `claude mcp add --scope user --transport http popcorn ${SITE_URL}/mcp`, then `/mcp` > Authenticate.
+- claude.ai: Settings > Connectors > Add custom connector, `https://popcorn.<domain>/mcp`, then sign in.
+- Gemini CLI: `{ "mcpServers": { "popcorn": { "httpUrl": "https://popcorn.<domain>/mcp" } } }` in `~/.gemini/settings.json`, then `/mcp auth popcorn`.
+- Revoking: `curl -s ${SITE_URL}/<token>/api/connections` lists connections, `curl -s -X DELETE ${SITE_URL}/<token>/api/connections/<id>` removes one. Rotating `MCP_CONNECT_CODE` disconnects all of them.
+
 ### 5. PWA
 
 - `vite-plugin-pwa` generates the manifest and service worker. Both are served under `/<token>/` with relative `start_url`/`scope`, so the installed app keeps the token and the SW controls nothing outside it.
