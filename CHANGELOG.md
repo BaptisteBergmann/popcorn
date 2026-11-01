@@ -2,6 +2,7 @@
 
 ## 2026-11-01
 
+- `373acde` fix(env): reject a connect code equal to APP_TOKEN, redact it and ship it empty
 - `51e4aab` fix(oauth): report the wait of the tripped limiter only
 - `cc5d0df` docs(mcp): document the MCP rules and connection steps
 - `483e436` feat(api): list and revoke MCP connections
