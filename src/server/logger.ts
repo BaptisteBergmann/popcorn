@@ -3,5 +3,5 @@ import { env } from '@server/env';
 
 export const logger = pino({
   level: env.LOG_LEVEL,
-  redact: ['TMDB_API_TOKEN', 'APP_TOKEN', '*.authorization', '*.token'],
+  redact: ['TMDB_API_TOKEN', 'APP_TOKEN', 'MCP_CONNECT_CODE', '*.authorization', '*.token'],
 });

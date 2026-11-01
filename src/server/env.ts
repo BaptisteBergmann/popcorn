@@ -22,7 +22,13 @@ const schema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 });
 
-const parsed = schema.safeParse(process.env);
+const parsed = schema
+  .refine((v) => v.MCP_CONNECT_CODE === undefined || v.MCP_CONNECT_CODE !== v.APP_TOKEN, {
+    // The two secrets guard different doors; sharing a value would let one leak open the other.
+    path: ['MCP_CONNECT_CODE'],
+    message: 'MCP_CONNECT_CODE must differ from APP_TOKEN',
+  })
+  .safeParse(process.env);
 if (!parsed.success) {
   // Print field names and messages only, never the values.
   const problems = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('\n');

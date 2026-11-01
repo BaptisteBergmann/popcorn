@@ -5,9 +5,9 @@ pnpm = "latest"
 
 [env]
 APP_TOKEN = "change-me-openssl-rand-hex-24"
-# Optional. Consent code typed on the MCP sign-in page; 16+ chars, different from APP_TOKEN.
-# MCP sign-in stays disabled while it is empty.
-MCP_CONNECT_CODE = "change-me-openssl-rand-hex-24"
+# Optional. Consent code typed on the MCP sign-in page; 16+ chars, different from APP_TOKEN
+# (e.g. `openssl rand -hex 24`). MCP sign-in stays disabled while it is empty.
+MCP_CONNECT_CODE = ""
 TMDB_API_TOKEN = "tmdb-v4-read-access-token"
 SITE_URL = "https://popcorn.<domain>"
 DATABASE_PATH = "./data/popcorn.db"
