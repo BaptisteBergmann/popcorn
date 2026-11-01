@@ -2,6 +2,7 @@
 
 ## 2026-10-31
 
+- `a9eccda` fix(web): remove duplicate margin on card actions
 - `2a57ebc` fix(web): flip inList only in the adder's cached searches
 - `56c25ff` feat(web): add and reveal surprise titles
 - `0c27a1b` feat(web): hooks for surprise titles
