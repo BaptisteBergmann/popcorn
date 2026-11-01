@@ -2,6 +2,7 @@
 
 ## 2026-11-01
 
+- `fdd6679` fix(oauth): distinct expired-step title, default port for https redirects, accurate limiter comment
 - `57b9525` fix(oauth): log only known authorize values, log MCP errors by class and render a page on consent GET failure
 - `b266adc` fix(oauth): kill grants on code rotation or member removal at code exchange and list live connections only
 - `373acde` fix(env): reject a connect code equal to APP_TOKEN, redact it and ship it empty
