@@ -8,6 +8,7 @@ import { db } from '@server/db';
 import { memberKey, members, oauthClients, oauthGrants, titles } from '@server/db/schema';
 import { env } from '@server/env';
 import { logger } from '@server/logger';
+import { liveGrantCondition } from '@server/oauth/tokens';
 import {
   addTitle,
   listTitles,
@@ -143,6 +144,9 @@ export const api = new Hono()
   // MCP connections. No UI: revoke with curl. An access token can't reach these routes, only the
   // app token can.
   .get('/connections', (c) => {
+    // Live connections only, by the same rule as the connection limit.
+    const live = liveGrantCondition();
+    if (!live) return c.json([]);
     const rows = db
       .select({
         id: oauthGrants.id,
@@ -155,7 +159,7 @@ export const api = new Hono()
       .from(oauthGrants)
       .innerJoin(oauthClients, eq(oauthClients.id, oauthGrants.clientId))
       .innerJoin(members, eq(members.id, oauthGrants.memberId))
-      .where(isNull(oauthGrants.revokedAt))
+      .where(live)
       .orderBy(desc(oauthGrants.createdAt))
       .all();
     return c.json(rows);

@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from 'node:crypto';
-import { and, eq, gt, inArray, isNotNull, isNull, lt, notInArray, or, sql } from 'drizzle-orm';
+import { and, eq, gt, inArray, isNotNull, isNull, lt, notInArray, or, sql, type SQL } from 'drizzle-orm';
 import { db } from '@server/db';
 import { members, oauthClients, oauthGrants } from '@server/db/schema';
 import { logger } from '@server/logger';
@@ -70,24 +70,28 @@ export function revokeGrantById(grantId: string, reason: string): void {
   logger.child({ function: 'revokeGrantById', grantId }).warn({ reason }, 'OAuth grant revoked');
 }
 
-/** Grants that still count against the connection limit (current code only). */
-export function countActiveGrants(): number {
-  if (!currentConnectCodeTag) return 0;
+/**
+ * Condition for a live connection: current connect code, not revoked, and either a code still
+ * waiting to be exchanged or a refresh token still valid. Null when MCP sign-in is disabled.
+ * The connection limit and the connections list share it, so they always agree.
+ */
+export function liveGrantCondition(): SQL | null {
+  if (!currentConnectCodeTag) return null;
   const now = Date.now();
-  const row = db
-    .select({ n: sql<number>`count(*)` })
-    .from(oauthGrants)
-    .where(
-      and(
-        eq(oauthGrants.connectCodeTag, currentConnectCodeTag),
-        isNull(oauthGrants.revokedAt),
-        or(
-          and(isNull(oauthGrants.codeUsedAt), gt(oauthGrants.codeExpiresAt, now)),
-          gt(oauthGrants.refreshExpiresAt, now),
-        ),
-      ),
-    )
-    .get();
+  return and(
+    eq(oauthGrants.connectCodeTag, currentConnectCodeTag),
+    isNull(oauthGrants.revokedAt),
+    or(
+      and(isNull(oauthGrants.codeUsedAt), gt(oauthGrants.codeExpiresAt, now)),
+      gt(oauthGrants.refreshExpiresAt, now),
+    ),
+  ) ?? null;
+}
+
+export function countActiveGrants(): number {
+  const live = liveGrantCondition();
+  if (!live) return 0;
+  const row = db.select({ n: sql<number>`count(*)` }).from(oauthGrants).where(live).get();
   return row?.n ?? 0;
 }
 
@@ -161,6 +165,9 @@ export function issueTokensForCode(params: {
   }
   if (grant.revokedAt) return { status: 'invalid_grant', why: 'grant_revoked' };
   if (grant.codeExpiresAt <= Date.now()) return { status: 'invalid_grant', why: 'code_expired' };
+  // Same liveness rules as refresh and /mcp: a rotated code or a removed member kills the grant.
+  if (grant.connectCodeTag !== currentConnectCodeTag) return { status: 'invalid_grant', why: 'connect_code_changed' };
+  if (!memberExists(grant.memberId)) return { status: 'invalid_grant', why: 'member_gone' };
   if (grant.clientId !== params.clientId) return { status: 'invalid_grant', why: 'client_mismatch' };
   if (grant.redirectUri !== params.redirectUri) return { status: 'invalid_grant', why: 'redirect_uri_mismatch' };
   if (params.resource !== null && params.resource !== grant.resource) {
