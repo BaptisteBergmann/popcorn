@@ -3,6 +3,7 @@ import {
   MutationCache,
   QueryCache,
   QueryClient,
+  type QueryKey,
   useMutation,
   useQuery,
   useQueryClient,
@@ -86,25 +87,32 @@ export function useAddMember() {
   });
 }
 
-export function useTitles(status: TitleStatus) {
+// The member only narrows what is shown (own surprises); it is part of the key so a member
+// switch never shows the previous member's rows.
+export function useTitles(status: TitleStatus, member: string | null) {
   return useQuery({
-    queryKey: ['titles', status],
+    queryKey: ['titles', status, member],
     queryFn: async (): Promise<TitleDto[]> => {
-      const res = await client.api.titles.$get({ query: { status } });
+      const res = await client.api.titles.$get({
+        query: member ? { status, member } : { status },
+      });
       if (!res.ok) throw new ApiError(res.status);
       return res.json();
     },
   });
 }
 
-export function useSearch(q: string) {
+export function useSearch(q: string, member: string | null) {
   return useQuery({
-    queryKey: ['search', q],
+    queryKey: ['search', q, member],
     enabled: q.length >= 2,
     staleTime: 60_000,
-    placeholderData: keepPreviousData,
+    // Keep previous results across query changes only for the same member, so a member
+    // switch can't leave the previous member's inList flags on screen.
+    placeholderData: (prev, prevQuery) =>
+      prevQuery?.queryKey[2] === member ? keepPreviousData(prev) : undefined,
     queryFn: async (): Promise<SearchHitDto[]> => {
-      const res = await client.api.search.$get({ query: { q } });
+      const res = await client.api.search.$get({ query: member ? { q, member } : { q } });
       if (!res.ok) throw new ApiError(res.status);
       return res.json();
     },
@@ -112,28 +120,38 @@ export function useSearch(q: string) {
 }
 
 const byNewest = (a: TitleDto, b: TitleDto) => b.addedAt - a.addedAt || b.id - a.id;
-type Snapshot = [TitleStatus, TitleDto[] | undefined][];
+type Snapshot = [QueryKey, TitleDto[] | undefined][];
+
+type AddVars = { hit: SearchHitDto; addedBy: string; hidden: boolean };
 
 export function useAddTitle() {
   const qc = useQueryClient();
   const navigate = useNavigate();
-  return useMutation({
-    mutationFn: async (vars: { hit: SearchHitDto; addedBy: string }) => {
+  const mutation = useMutation({
+    mutationFn: async (vars: AddVars) => {
       const res = await client.api.titles.$post({
-        json: { tmdbId: vars.hit.tmdbId, type: vars.hit.type, addedBy: vars.addedBy },
+        json: {
+          tmdbId: vars.hit.tmdbId,
+          type: vars.hit.type,
+          addedBy: vars.addedBy,
+          hidden: vars.hidden,
+        },
       });
       if (!res.ok) throw new ApiError(res.status);
-      return res.json();
+      // 201 = new row; 200 = an existing surprise was defused by this add.
+      return { created: res.status === 201 };
     },
-    onSuccess: (_data, { hit }) => {
+    onSuccess: ({ created }, { hit, hidden }) => {
       markInList(hit.tmdbId, hit.type);
       void qc.invalidateQueries({ queryKey: ['titles'] });
-      toast(copy.addToastAdded(hit.title), {
+      // On 200 never reveal that the title existed hidden: always the plain toast.
+      toast(created && hidden ? copy.addToastSurprise(hit.title) : copy.addToastAdded(hit.title), {
         duration: 5000,
         action: { label: copy.addToastView, onClick: () => void navigate('/') },
       });
     },
-    onError: (error, { hit }) => {
+    onError: (error, vars) => {
+      const { hit } = vars;
       if (error instanceof ApiError && error.status === 409) {
         // Already saved (e.g. by the other person): same end state as success.
         markInList(hit.tmdbId, hit.type);
@@ -141,9 +159,20 @@ export function useAddTitle() {
         toast(copy.addToastExists);
         return;
       }
+      if (error instanceof ApiError && error.status === 422) {
+        toast.error(copy.addToastNoImdb(hit.title), {
+          duration: 8000,
+          action: {
+            label: copy.addToastNoImdbAction,
+            onClick: () => mutation.mutate({ ...vars, hidden: false }),
+          },
+        });
+        return;
+      }
       toast.error(copy.addToastError(hit.title));
     },
   });
+  return mutation;
 
   function markInList(tmdbId: number, type: TitleType) {
     qc.setQueriesData<SearchHitDto[]>({ queryKey: ['search'] }, (old) =>
@@ -153,17 +182,21 @@ export function useAddTitle() {
 }
 
 function snapshotTitles(qc: QueryClient): Snapshot {
-  return [
-    ['to_watch', qc.getQueryData<TitleDto[]>(['titles', 'to_watch'])],
-    ['watched', qc.getQueryData<TitleDto[]>(['titles', 'watched'])],
-  ];
+  return qc.getQueriesData<TitleDto[]>({ queryKey: ['titles'] });
 }
 
 function restoreTitles(qc: QueryClient, snapshot: Snapshot | undefined) {
-  snapshot?.forEach(([status, data]) => qc.setQueryData(['titles', status], data));
+  snapshot?.forEach(([key, data]) => qc.setQueryData(key, data));
 }
 
-type SetStatusVars = { id: number; title: string; from: TitleStatus; to: TitleStatus; isUndo?: boolean };
+type SetStatusVars = {
+  id: number;
+  title: string;
+  from: TitleStatus;
+  to: TitleStatus;
+  wasHidden?: boolean;
+  isUndo?: boolean;
+};
 
 export function useSetStatus() {
   const qc = useQueryClient();
@@ -182,18 +215,31 @@ export function useSetStatus() {
     onMutate: async ({ id, from, to }) => {
       await qc.cancelQueries({ queryKey: ['titles'] });
       const snapshot = snapshotTitles(qc);
-      const item = qc.getQueryData<TitleDto[]>(['titles', from])?.find((t) => t.id === id);
-      qc.setQueryData<TitleDto[]>(['titles', from], (old) => old?.filter((t) => t.id !== id));
+      const item = qc
+        .getQueriesData<TitleDto[]>({ queryKey: ['titles', from] })
+        .flatMap(([, data]) => data ?? [])
+        .find((t) => t.id === id);
+      qc.setQueriesData<TitleDto[]>({ queryKey: ['titles', from] }, (old) =>
+        old?.filter((t) => t.id !== id),
+      );
       if (item) {
-        qc.setQueryData<TitleDto[]>(['titles', to], (old) =>
-          old ? [{ ...item, status: to }, ...old].sort(byNewest) : old,
+        // Watched always reveals a surprise, server side too.
+        const moved = { ...item, status: to, hidden: to === 'watched' ? false : item.hidden };
+        qc.setQueriesData<TitleDto[]>({ queryKey: ['titles', to] }, (old) =>
+          old ? [moved, ...old.filter((t) => t.id !== id)].sort(byNewest) : old,
         );
       }
       return { snapshot };
     },
     onSuccess: (_data, vars) => {
       if (vars.isUndo) return;
-      toast(vars.to === 'watched' ? copy.toastWatched(vars.title) : copy.toastUnwatched(vars.title), {
+      const message =
+        vars.to === 'watched'
+          ? vars.wasHidden
+            ? copy.toastWatchedRevealed(vars.title)
+            : copy.toastWatched(vars.title)
+          : copy.toastUnwatched(vars.title);
+      toast(message, {
         duration: 5000,
         action: {
           label: copy.toastUndo,
@@ -222,15 +268,40 @@ export function useRemoveTitle() {
     onMutate: async ({ id }) => {
       await qc.cancelQueries({ queryKey: ['titles'] });
       const snapshot = snapshotTitles(qc);
-      for (const status of ['to_watch', 'watched'] as const) {
-        qc.setQueryData<TitleDto[]>(['titles', status], (old) => old?.filter((t) => t.id !== id));
-      }
+      qc.setQueriesData<TitleDto[]>({ queryKey: ['titles'] }, (old) =>
+        old?.filter((t) => t.id !== id),
+      );
       return { snapshot };
     },
     onSuccess: (_d, { title }) => toast(copy.toastRemoved(title), { duration: 4000 }),
     onError: (_err, { title }, ctx) => {
       restoreTitles(qc, ctx?.snapshot);
       toast.error(copy.errorRemove(title));
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['titles'] }),
+  });
+}
+
+export function useRevealTitle() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id }: { id: number; title: string }) => {
+      const res = await client.api.titles[':id'].reveal.$post({ param: { id: String(id) } });
+      if (!res.ok) throw new ApiError(res.status);
+      return res.json();
+    },
+    onMutate: async ({ id }) => {
+      await qc.cancelQueries({ queryKey: ['titles'] });
+      const snapshot = snapshotTitles(qc);
+      qc.setQueriesData<TitleDto[]>({ queryKey: ['titles'] }, (old) =>
+        old?.map((t) => (t.id === id ? { ...t, hidden: false } : t)),
+      );
+      return { snapshot };
+    },
+    onSuccess: (_d, { title }) => toast(copy.toastRevealed(title), { duration: 4000 }),
+    onError: (_err, { title }, ctx) => {
+      restoreTitles(qc, ctx?.snapshot);
+      toast.error(copy.errorReveal(title));
     },
     onSettled: () => qc.invalidateQueries({ queryKey: ['titles'] }),
   });

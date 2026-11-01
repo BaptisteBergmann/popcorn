@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@web/components/ui/tab
 import { ToggleGroup, ToggleGroupItem } from '@web/components/ui/toggle_group';
 import { useTitles } from '@web/lib/api';
 import { copy } from '@web/lib/copy';
+import { useMember } from '@web/lib/member';
 import { useOnline } from '@web/lib/use_online';
 
 type TypeFilter = 'all' | TitleType;
@@ -27,7 +28,8 @@ function TabPanel({
   filter: TypeFilter;
   onResetFilter: () => void;
 }) {
-  const query = useTitles(status);
+  const { member } = useMember();
+  const query = useTitles(status, member);
   const online = useOnline();
   const isRefetchError = query.isRefetchError;
 
@@ -99,8 +101,9 @@ export function ListPage() {
   const rawType = params.get('type');
   const filter: TypeFilter = rawType === 'movie' || rawType === 'series' ? rawType : 'all';
 
-  const toWatch = useTitles('to_watch');
-  const watched = useTitles('watched');
+  const { member } = useMember();
+  const toWatch = useTitles('to_watch', member);
+  const watched = useTitles('watched', member);
 
   useEffect(() => {
     document.title = copy.appName;

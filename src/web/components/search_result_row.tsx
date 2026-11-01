@@ -41,7 +41,7 @@ export function SearchResultRow({ hit }: { hit: SearchHitDto }) {
           className="min-w-[7rem]"
           disabled={!online || !member}
           aria-label={copy.addButtonAria(hit.title)}
-          onClick={() => member && add.mutate({ hit, addedBy: member })}
+          onClick={() => member && add.mutate({ hit, addedBy: member, hidden: false })}
         >
           <Plus aria-hidden="true" />
           {copy.addButton}

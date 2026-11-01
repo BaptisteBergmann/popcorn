@@ -8,6 +8,7 @@ import { Input } from '@web/components/ui/input';
 import { Skeleton } from '@web/components/ui/skeleton';
 import { useSearch } from '@web/lib/api';
 import { copy } from '@web/lib/copy';
+import { useMember } from '@web/lib/member';
 import { useDebouncedValue } from '@web/lib/use_debounced_value';
 import { useOnline } from '@web/lib/use_online';
 
@@ -26,7 +27,8 @@ export function AddPage() {
   const q = forced === trimmed ? trimmed : debounced;
   const active = trimmed.length >= 2;
 
-  const search = useSearch(active ? q : '');
+  const { member } = useMember();
+  const search = useSearch(active ? q : '', member);
 
   useEffect(() => {
     document.title = copy.addPageTitle;
