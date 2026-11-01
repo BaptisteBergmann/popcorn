@@ -14,3 +14,14 @@ export const tokenGate = createMiddleware(async (c, next) => {
   }
   await next();
 });
+
+const expectedConnectCode = env.MCP_CONNECT_CODE ? digest(env.MCP_CONNECT_CODE) : null;
+
+/**
+ * Constant-time check of the MCP consent secret. Only the consent form uses it, never the gate,
+ * and `APP_TOKEN` is never accepted here. False when MCP_CONNECT_CODE is unset.
+ */
+export function isConnectCode(given: string): boolean {
+  const ok = timingSafeEqual(digest(given), expectedConnectCode ?? digest(''));
+  return expectedConnectCode !== null && ok;
+}

@@ -6,6 +6,13 @@ const schema = z.object({
     .string()
     .min(16, 'APP_TOKEN must be at least 16 characters')
     .regex(/^[A-Za-z0-9_-]+$/, 'APP_TOKEN may only contain A-Z a-z 0-9 _ -'),
+  // Consent secret for MCP sign-in. Optional: without it the app works and /oauth/authorize refuses.
+  // Kept apart from APP_TOKEN so rotating one never touches the other. An empty value
+  // (compose passes '' when the variable is unset) counts as unset.
+  MCP_CONNECT_CODE: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.string().min(16, 'MCP_CONNECT_CODE must be at least 16 characters').optional(),
+  ),
   TMDB_API_TOKEN: z.string().min(1),
   SITE_URL: z
     .url()
