@@ -1,5 +1,14 @@
 import { z } from 'zod';
 
+function isExactHttpsUri(uri: string): boolean {
+  try {
+    const url = new URL(uri);
+    return url.protocol === 'https:' && uri.length <= 500 && !/[#@\s]/.test(uri) && !url.hash;
+  } catch {
+    return false;
+  }
+}
+
 const schema = z.object({
   // URL-safe charset on purpose: the token is injected into <base href> and compared as a path segment.
   APP_TOKEN: z
@@ -12,6 +21,21 @@ const schema = z.object({
   MCP_CONNECT_CODE: z.preprocess(
     (v) => (v === '' ? undefined : v),
     z.string().min(16, 'MCP_CONNECT_CODE must be at least 16 characters').optional(),
+  ),
+  // Exact extra OAuth redirect URIs, comma separated. For callbacks on hosts shared with other
+  // tenants (Gemini's), where allowing the whole host would let anyone's project receive a code.
+  // Env, not code, because these URIs can contain the real hostname.
+  MCP_ALLOWED_REDIRECT_URIS: z.preprocess(
+    (v) => (v === undefined ? '' : v),
+    z
+      .string()
+      .transform((v) =>
+        v
+          .split(',')
+          .map((uri) => uri.trim())
+          .filter(Boolean),
+      )
+      .refine((uris) => uris.every(isExactHttpsUri), 'MCP_ALLOWED_REDIRECT_URIS must hold https URIs without fragment'),
   ),
   TMDB_API_TOKEN: z.string().min(1),
   SITE_URL: z

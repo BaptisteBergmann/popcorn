@@ -72,6 +72,7 @@ Connecting (needs `MCP_CONNECT_CODE` set on the server; the sign-in page asks fo
 - Claude Code: `claude mcp add --scope user --transport http popcorn ${SITE_URL}/mcp`, then `/mcp` > Authenticate.
 - claude.ai: Settings > Connectors > Add custom connector, `https://popcorn.<domain>/mcp`, then sign in.
 - Gemini CLI: `{ "mcpServers": { "popcorn": { "httpUrl": "https://popcorn.<domain>/mcp" } } }` in `~/.gemini/settings.json`, then `/mcp auth popcorn`.
+- Gemini: add `https://popcorn.<domain>/mcp` as a connector. Its callback is per user and contains the hostname, so add the exact URL from Gemini's error to `MCP_ALLOWED_REDIRECT_URIS` (never the whole Google host, and never in committed files).
 - Revoking: `curl -s ${SITE_URL}/<token>/api/connections` lists connections, `curl -s -X DELETE ${SITE_URL}/<token>/api/connections/<id>` removes one. Rotating `MCP_CONNECT_CODE` disconnects all of them.
 
 ### 5. PWA
@@ -93,7 +94,7 @@ Connecting (needs `MCP_CONNECT_CODE` set on the server; the sign-in page asks fo
 ## 🧰 Tooling & Environment
 
 - Tool versions (Node, pnpm) and environment variables are managed with **mise**. Do not suggest nvm, direnv, or manually exporting env vars; use `mise.toml` / `mise` commands. `mise.toml` is gitignored; `mise.toml.example` is the committed template.
-- Env vars: `APP_TOKEN`, `MCP_CONNECT_CODE` (optional; MCP sign-in stays disabled without it), `TMDB_API_TOKEN` (TMDB v4 read access token), `SITE_URL`, `DATABASE_PATH` (default `/data/popcorn.db`), `PORT`.
+- Env vars: `APP_TOKEN`, `MCP_CONNECT_CODE` (optional; MCP sign-in stays disabled without it), `MCP_ALLOWED_REDIRECT_URIS` (optional; exact extra OAuth redirect URIs, comma separated), `TMDB_API_TOKEN` (TMDB v4 read access token), `SITE_URL`, `DATABASE_PATH` (default `/data/popcorn.db`), `PORT`.
 - Scripts: `pnpm dev` (server + Vite together), `pnpm build`, `pnpm start`, `pnpm typecheck`, `pnpm lint`, `pnpm db:generate`.
 
 ## 🐳 Docker Build & Deploy

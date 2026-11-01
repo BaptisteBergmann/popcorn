@@ -67,28 +67,6 @@ const MAX_CONSENT_BODY_BYTES = 16 * 1024;
 const MAX_CLIENT_NAME = 100;
 const MAX_REDIRECT_URIS = 10;
 
-// Temporary: finds the exact Gemini callback to pin on the allowlist. Its host serves many Google
-// projects, so the allowlist must match the full URI. Limited to this one host and a path charset.
-function geminiRedirectPaths(uris: unknown): string[] {
-  if (!Array.isArray(uris)) return [];
-  const paths = new Set<string>();
-  for (const uri of uris.slice(0, MAX_REDIRECT_URIS)) {
-    if (typeof uri !== 'string') continue;
-    try {
-      const url = new URL(uri);
-      if (
-        url.protocol === 'https:' &&
-        url.hostname === 'oauth-redirect.googleusercontent.com' &&
-        /^\/[A-Za-z0-9._~/-]{0,200}$/.test(url.pathname)
-      ) {
-        paths.add(url.pathname);
-      }
-    } catch {
-      // Not a URL: nothing to report.
-    }
-  }
-  return [...paths];
-}
 // Hostnames only, so paths and query strings stay out of the logs. Used to find a new client's host
 // for the allowlist. This endpoint is public, so the values are capped and limited to a hostname charset.
 function rejectedRedirectHosts(uris: unknown): string[] {
@@ -242,11 +220,7 @@ export const oauth = new Hono()
     const redirectUris = Array.isArray(uris) ? Array.from(new Set(uris.filter(isAllowedRedirectUri))) : [];
     if (redirectUris.length < 1 || redirectUris.length > MAX_REDIRECT_URIS) {
       contextLogger.warn(
-        {
-          given: Array.isArray(uris) ? uris.length : 0,
-          rejectedHosts: rejectedRedirectHosts(uris),
-          geminiPaths: geminiRedirectPaths(uris),
-        },
+        { given: Array.isArray(uris) ? uris.length : 0, rejectedHosts: rejectedRedirectHosts(uris) },
         'Registration rejected: redirect_uris',
       );
       return oauthError(

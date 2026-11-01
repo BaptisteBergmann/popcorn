@@ -1,5 +1,7 @@
+import { env } from '@server/env';
+
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
-// Only these may receive an authorization code over https. Open registration would otherwise let a
+// Only these, plus the exact URIs in MCP_ALLOWED_REDIRECT_URIS, may receive an authorization code over https. Open registration would otherwise let a
 // phishing link send a real consent page's code anywhere. Add a host only for a client in use.
 const ALLOWED_HTTPS_HOSTS = new Set(['claude.ai', 'claude.com']);
 // eslint-disable-next-line no-control-regex
@@ -9,7 +11,7 @@ export const MAX_REDIRECT_URI_LENGTH = 500;
 
 export const isLoopbackHost = (hostname: string) => LOOPBACK_HOSTS.has(hostname);
 
-// `http` on a loopback host or `https` on an allowlisted host (RFC 8252), no fragment, userinfo
+// `http` on a loopback host or `https` on an allowlisted host or exact env URI (RFC 8252), no fragment, userinfo
 // or custom scheme.
 export function isAllowedRedirectUri(uri: unknown): uri is string {
   if (typeof uri !== 'string' || uri.length === 0 || uri.length > MAX_REDIRECT_URI_LENGTH) return false;
@@ -23,7 +25,9 @@ export function isAllowedRedirectUri(uri: unknown): uri is string {
   if (url.hash || uri.includes('#')) return false;
   if (url.username || url.password) return false;
   // Default port only: a host allowlist alone would still accept claude.ai:8443.
-  if (url.protocol === 'https:') return url.port === '' && ALLOWED_HTTPS_HOSTS.has(url.hostname);
+  if (url.protocol === 'https:') {
+    return (url.port === '' && ALLOWED_HTTPS_HOSTS.has(url.hostname)) || env.MCP_ALLOWED_REDIRECT_URIS.includes(uri);
+  }
   return url.protocol === 'http:' && isLoopbackHost(url.hostname);
 }
 

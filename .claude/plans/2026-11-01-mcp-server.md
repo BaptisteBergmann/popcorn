@@ -9,7 +9,7 @@ The user chose these on 2026-11-01. Where a section below disagrees, this list i
 
 1. **Public `/mcp` with root-level OAuth.** The endpoint is `${SITE_URL}/mcp` with no secret in its URL, and the app is its own authorization server. Rejected: an issuer under the gate at `https://host/<token>`, because the secret stays in the connector URL.
 2. **CLAUDE.md exception** as worded under "Proposed CLAUDE.md edit".
-3. **Clients for now: Claude and Gemini CLI.** No Google callback host goes on the allowlist until a specific Google product needs one.
+3. **Clients: Claude, Gemini CLI and Gemini.**
 4. **Consent secret: a separate `MCP_CONNECT_CODE`, not `APP_TOKEN`.** Lower sections that name `APP_TOKEN` as the consent secret (form, ticket, grant tag) predate this choice:
    - `APP_TOKEN` is not accepted by any OAuth route, and the gate is unchanged. Rotating `APP_TOKEN` doesn't affect OAuth grants.
    - `env.ts`: `MCP_CONNECT_CODE` is optional, minimum 16 characters. If it's unset, the server still starts and the gated app works normally, while `/oauth/authorize` renders the invalid-request page and logs one warning. It never falls back to `APP_TOKEN`.
@@ -19,7 +19,7 @@ The user chose these on 2026-11-01. Where a section below disagrees, this list i
    - Use the copy from the `MCP_CONNECT_CODE` row of "Adapting to the open decisions".
    - Add the variable to `mise.toml.example` and `docker-compose.portainer.yml`. The verify script uses it in place of `APP_TOKEN` for consent, and also checks that the form refuses `APP_TOKEN`.
 5. **Attribution: each connection is bound to a member at consent**, replacing `addedBy` and `list_members`. Removing the member cascades the grant away, so the next call gets a 401.
-6. **Redirect allowlist: loopback plus `claude.ai` and `claude.com` only.**
+6. **Redirect allowlist: loopback plus `claude.ai` and `claude.com` only.** Added on 2026-11-01 for Gemini: exact URIs from the `MCP_ALLOWED_REDIRECT_URIS` env var. Gemini's callback is per user on a Google host, so that host isn't allowed as a whole, and the URI contains the real hostname, so it stays out of committed files.
 7. **Surprises: MCP never returns, changes or creates a hidden title.** There is no `surprise: true`. A model can still defuse a surprise by adding that title, same as the web.
 8. **Lifetimes: access 1 h, refresh 30 days sliding, 90-day absolute cap.**
 9. **Revocation: gated `/api/connections` API, no UI.** The connection-limit copy stays as designed.
