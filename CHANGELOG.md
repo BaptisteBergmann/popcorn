@@ -2,6 +2,7 @@
 
 ## 2026-11-01
 
+- `c3ef4de` feat(mcp): add MCP endpoint with watchlist tools
 - `504b6ef` feat(oauth): add server-rendered consent page
 - `66975f8` feat(oauth): add metadata, registration, token and revoke endpoints
 - `cf9a28e` build: add MCP_CONNECT_CODE to the env template and compose file
