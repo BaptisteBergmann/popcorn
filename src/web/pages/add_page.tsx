@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Search, WifiOff, X } from 'lucide-react';
+import { Check, Gift, Search, WifiOff, X } from 'lucide-react';
 import { EmptyState } from '@web/components/empty_state';
 import { ErrorState } from '@web/components/error_state';
 import { SearchResultRow } from '@web/components/search_result_row';
@@ -11,6 +11,7 @@ import { copy } from '@web/lib/copy';
 import { useMember } from '@web/lib/member';
 import { useDebouncedValue } from '@web/lib/use_debounced_value';
 import { useOnline } from '@web/lib/use_online';
+import { cn } from '@web/lib/utils';
 
 const SLOW_AFTER_MS = 3000;
 
@@ -21,6 +22,8 @@ export function AddPage() {
   // Enter searches immediately; `forced` is the trimmed text it was pressed with.
   const [forced, setForced] = useState<string | null>(null);
   const [slowFor, setSlowFor] = useState<string | null>(null);
+  // Local on purpose: never persisted, so it resets to off when leaving the page.
+  const [surprise, setSurprise] = useState(false);
 
   const trimmed = input.trim();
   const debounced = useDebouncedValue(trimmed, 350);
@@ -101,7 +104,7 @@ export function AddPage() {
     return (
       <ul className={search.isPlaceholderData ? 'flex flex-col gap-3 opacity-60' : 'flex flex-col gap-3'}>
         {search.data.map((hit) => (
-          <SearchResultRow key={`${hit.type}:${hit.tmdbId}`} hit={hit} />
+          <SearchResultRow key={`${hit.type}:${hit.tmdbId}`} hit={hit} surprise={surprise} />
         ))}
       </ul>
     );
@@ -143,6 +146,26 @@ export function AddPage() {
               <X aria-hidden="true" />
             </Button>
           )}
+        </div>
+        <Button
+          variant="outline"
+          className={cn('mt-2 h-11', surprise && 'border-primary bg-secondary text-foreground')}
+          aria-pressed={surprise}
+          aria-describedby={surprise ? 'surprise-help' : undefined}
+          disabled={!online}
+          onClick={() => setSurprise((v) => !v)}
+        >
+          <Gift aria-hidden="true" />
+          {copy.surpriseToggle}
+          {surprise && <Check aria-hidden="true" />}
+        </Button>
+        {surprise && (
+          <p id="surprise-help" className="pt-2 text-sm text-muted-foreground">
+            {copy.surpriseToggleHelp}
+          </p>
+        )}
+        <div role="status" className="sr-only">
+          {surprise ? copy.surpriseOnAnnounce : copy.surpriseOffAnnounce}
         </div>
         {slow && (
           <p role="status" className="pt-2 text-sm text-muted-foreground">
