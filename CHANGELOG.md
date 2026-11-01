@@ -2,6 +2,7 @@
 
 ## 2026-11-01
 
+- `cf9a28e` build: add MCP_CONNECT_CODE to the env template and compose file
 - `7632810` feat(oauth): add token, client and redirect helpers
 - `074193d` feat(db): add oauth client and grant tables
 - `75def9c` refactor(api): extract watchlist logic into a shared module
