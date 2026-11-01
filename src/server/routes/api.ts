@@ -127,18 +127,15 @@ export const api = new Hono()
         .get();
       if (!member) return c.json({ error: 'Unknown member' }, 400);
 
-      const exists = db
-        .select({
-          id: titles.id,
-          hidden: titles.hidden,
-          addedBy: titles.addedBy,
-        })
-        .from(titles)
-        .where(and(eq(titles.tmdbId, tmdbId), eq(titles.type, type)))
-        .get();
-      if (exists) {
-        // Someone else picked a title that another member hid: defuse the surprise
-        // rather than spoil it with a 409 or leave them with a title that never shows.
+      // Someone else picked a title that another member hid: defuse the surprise
+      // rather than spoil it with a 409 or leave them with a title that never shows.
+      const defuse = () => {
+        const exists = db
+          .select({ id: titles.id, hidden: titles.hidden, addedBy: titles.addedBy })
+          .from(titles)
+          .where(and(eq(titles.tmdbId, tmdbId), eq(titles.type, type)))
+          .get();
+        if (!exists) return null;
         if (exists.hidden && exists.addedBy !== member.name) {
           const revealed = db
             .update(titles)
@@ -152,7 +149,9 @@ export const api = new Hono()
           }
         }
         return c.json({ error: 'Already in the list' }, 409);
-      }
+      };
+      const existing = defuse();
+      if (existing) return existing;
 
       let details;
       try {
@@ -183,7 +182,8 @@ export const api = new Hono()
         .onConflictDoNothing()
         .returning()
         .get();
-      if (!inserted) return c.json({ error: 'Already in the list' }, 409);
+      // Lost the race: a concurrent insert (possibly a hidden one by another member) won.
+      if (!inserted) return defuse() ?? c.json({ error: 'Already in the list' }, 409);
 
       contextLogger.info('Title added');
       return c.json(toDto(inserted), 201);
