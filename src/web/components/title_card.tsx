@@ -70,7 +70,7 @@ export function TitleCard({ item, tab }: { item: TitleDto; tab: TitleStatus }) {
       <p className="text-xs text-muted-foreground">{meta}</p>
       {item.addedBy && <p className="text-xs text-muted-foreground">{copy.addedBy(item.addedBy)}</p>}
       <div className="mt-2 flex flex-col gap-2">
-        <div className="mt-2 flex gap-2">
+        <div className="flex gap-2">
           <Button
             ref={watchRef}
             variant="secondary"
