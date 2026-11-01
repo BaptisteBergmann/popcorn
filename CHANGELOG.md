@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-01
+
+- `baf3376` fix(web): show list error state when members fail to load
+
 ## 2026-10-31
 
 - `5e97627` docs: mark hidden surprise titles plan as implemented
