@@ -1,11 +1,11 @@
 import { zValidator } from '@hono/zod-validator';
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { z } from 'zod';
 import { TITLE_STATUSES, TITLE_TYPES } from '@shared/constants';
 import { db } from '@server/db';
-import { memberKey, members, titles } from '@server/db/schema';
+import { memberKey, members, oauthClients, oauthGrants, titles } from '@server/db/schema';
 import { env } from '@server/env';
 import { logger } from '@server/logger';
 import {
@@ -139,4 +139,36 @@ export const api = new Hono()
       if (!result.ok) return c.json({ error: 'Could not reach TMDB' }, 502);
       return c.json(result.value);
     },
-  );
+  )
+  // MCP connections. No UI: revoke with curl. An access token can't reach these routes, only the
+  // app token can.
+  .get('/connections', (c) => {
+    const rows = db
+      .select({
+        id: oauthGrants.id,
+        clientName: oauthClients.clientName,
+        memberName: members.name,
+        createdAt: oauthGrants.createdAt,
+        lastUsedAt: oauthGrants.lastUsedAt,
+        refreshExpiresAt: oauthGrants.refreshExpiresAt,
+      })
+      .from(oauthGrants)
+      .innerJoin(oauthClients, eq(oauthClients.id, oauthGrants.clientId))
+      .innerJoin(members, eq(members.id, oauthGrants.memberId))
+      .where(isNull(oauthGrants.revokedAt))
+      .orderBy(desc(oauthGrants.createdAt))
+      .all();
+    return c.json(rows);
+  })
+  .delete('/connections/:id', zValidator('param', z.object({ id: z.uuid() }), onInvalid), (c) => {
+    const { id } = c.req.valid('param');
+    const revoked = db
+      .update(oauthGrants)
+      .set({ revokedAt: Date.now() })
+      .where(and(eq(oauthGrants.id, id), isNull(oauthGrants.revokedAt)))
+      .returning({ id: oauthGrants.id })
+      .get();
+    if (!revoked) return c.json({ error: 'Not found' }, 404);
+    logger.child({ function: 'revokeConnection', id }).info('MCP connection revoked');
+    return c.json({ ok: true as const });
+  });
