@@ -2,6 +2,7 @@
 
 ## 2026-11-01
 
+- `57b9525` fix(oauth): log only known authorize values, log MCP errors by class and render a page on consent GET failure
 - `b266adc` fix(oauth): kill grants on code rotation or member removal at code exchange and list live connections only
 - `373acde` fix(env): reject a connect code equal to APP_TOKEN, redact it and ship it empty
 - `51e4aab` fix(oauth): report the wait of the tripped limiter only
