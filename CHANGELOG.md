@@ -2,6 +2,7 @@
 
 ## 2026-11-01
 
+- `51e4aab` fix(oauth): report the wait of the tripped limiter only
 - `cc5d0df` docs(mcp): document the MCP rules and connection steps
 - `483e436` feat(api): list and revoke MCP connections
 - `c3ef4de` feat(mcp): add MCP endpoint with watchlist tools
