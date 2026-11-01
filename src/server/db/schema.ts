@@ -20,6 +20,8 @@ export const titles = sqliteTable(
     status: text('status', { enum: TITLE_STATUSES }).notNull().default('to_watch'),
     addedAt: integer('added_at').notNull(),
     watchedAt: integer('watched_at'),
+    // Surprise: visible only to the adder in the web app and only in the Stremio random catalog.
+    hidden: integer('hidden', { mode: 'boolean' }).notNull().default(false),
   },
   (t) => [uniqueIndex('titles_tmdb_id_type_unique').on(t.tmdbId, t.type)],
 );
