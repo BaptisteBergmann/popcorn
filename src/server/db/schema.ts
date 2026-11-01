@@ -54,6 +54,9 @@ export const oauthClients = sqliteTable('oauth_clients', {
   authMethod: text('auth_method', { enum: OAUTH_AUTH_METHODS }).notNull(),
   clientSecretHash: text('client_secret_hash'),
   createdAt: integer('created_at').notNull(),
+  // Set at each approval. Lets the sweep keep clients that once worked (they retry with a cached
+  // client_id after a revoke or expiry) while dropping junk registrations after a day.
+  lastGrantedAt: integer('last_granted_at'),
 });
 
 // One row per MCP connection: code, access and refresh token live here, hashed only.

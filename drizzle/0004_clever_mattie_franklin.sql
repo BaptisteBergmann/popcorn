@@ -4,7 +4,8 @@ CREATE TABLE `oauth_clients` (
 	`redirect_uris` text NOT NULL,
 	`auth_method` text NOT NULL,
 	`client_secret_hash` text,
-	`created_at` integer NOT NULL
+	`created_at` integer NOT NULL,
+	`last_granted_at` integer
 );
 --> statement-breakpoint
 CREATE TABLE `oauth_grants` (

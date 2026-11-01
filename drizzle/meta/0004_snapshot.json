@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "c12a49d0-409a-4b3e-b5fb-1b6ca358f886",
+  "id": "c432f080-4674-4e53-bd47-112810232409",
   "prevId": "54017a7f-36b7-4a00-a4bc-20bb62c70480",
   "tables": {
     "members": {
@@ -94,6 +94,13 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
+          "autoincrement": false
+        },
+        "last_granted_at": {
+          "name": "last_granted_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         }
       },

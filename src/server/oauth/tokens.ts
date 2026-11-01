@@ -20,7 +20,10 @@ import { verifyS256 } from '@server/oauth/pkce';
 
 // Not worth a write on every call; "last used" only needs to be roughly right.
 const LAST_USED_REFRESH_MS = 5 * 60 * 1000;
-const STALE_CLIENT_MS = 24 * 60 * 60 * 1000;
+// A registration that never got a grant is junk after a day; one that did keeps its client_id for
+// longer, since a client retries with it after a revoke, member removal or expiry.
+const UNUSED_CLIENT_MS = 24 * 60 * 60 * 1000;
+const GRANTED_CLIENT_MS = 180 * 24 * 60 * 60 * 1000;
 
 const random43 = () => randomBytes(32).toString('base64url');
 export const generateAuthCode = () => CODE_PREFIX + random43();
@@ -119,6 +122,7 @@ export function createGrant(params: {
       createdAt: now,
     })
     .run();
+  db.update(oauthClients).set({ lastGrantedAt: now }).where(eq(oauthClients.id, params.clientId)).run();
   sweepOAuth();
   return code;
 }
@@ -137,7 +141,15 @@ export function sweepOAuth(): void {
     .run();
   const used = db.selectDistinct({ id: oauthGrants.clientId }).from(oauthGrants);
   db.delete(oauthClients)
-    .where(and(lt(oauthClients.createdAt, now - STALE_CLIENT_MS), notInArray(oauthClients.id, used)))
+    .where(
+      and(
+        notInArray(oauthClients.id, used),
+        or(
+          and(isNull(oauthClients.lastGrantedAt), lt(oauthClients.createdAt, now - UNUSED_CLIENT_MS)),
+          lt(oauthClients.lastGrantedAt, now - GRANTED_CLIENT_MS),
+        ),
+      ),
+    )
     .run();
 }
 
