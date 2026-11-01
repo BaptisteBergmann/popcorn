@@ -8,6 +8,9 @@ type MemberContextValue = {
   members: MemberDto[];
   /** Config loaded but no valid stored name: the picker must open, non-dismissible. */
   mustPick: boolean;
+  /** Members failed to load with nothing cached: there is no member to fetch titles for. */
+  membersFailed: boolean;
+  retryMembers: () => void;
   pickerOpen: boolean;
   setPickerOpen: (open: boolean) => void;
   setMember: (name: string) => void;
@@ -48,6 +51,8 @@ export function MemberProvider({ children }: { children: ReactNode }) {
         member,
         members,
         mustPick: membersQuery.isSuccess && member === null,
+        membersFailed: membersQuery.isError && !membersQuery.data,
+        retryMembers: () => void membersQuery.refetch(),
         pickerOpen,
         setPickerOpen,
         setMember,

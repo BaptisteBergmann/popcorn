@@ -29,7 +29,7 @@ function TabPanel({
   onResetFilter: () => void;
 }) {
   // Wait for the member: fetching with null would flash a skeleton and refetch once it resolves.
-  const { member } = useMember();
+  const { member, membersFailed, retryMembers } = useMember();
   const query = useTitles(status, member, member !== null);
   const online = useOnline();
   const isRefetchError = query.isRefetchError;
@@ -47,6 +47,11 @@ function TabPanel({
           title={copy.offlineNoCacheTitle}
           body={copy.offlineNoCacheBody}
         />
+      );
+    }
+    if (membersFailed) {
+      return (
+        <ErrorState title={copy.errorListTitle} body={copy.errorListBody} onRetry={retryMembers} />
       );
     }
     return <TitleGridSkeleton />;
