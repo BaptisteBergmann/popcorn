@@ -6,6 +6,7 @@ import { HTTPException } from 'hono/http-exception';
 import { secureHeaders } from 'hono/secure-headers';
 import { logger } from '@server/logger';
 import { api } from '@server/routes/api';
+import { oauth } from '@server/routes/oauth';
 import { stremio } from '@server/routes/stremio';
 import { tokenGate } from '@server/token';
 
@@ -92,6 +93,10 @@ app.use(async (c, next) => {
   logger.child({ function: 'request' }).debug({ method: c.req.method, status: c.res.status });
 });
 
+// The MCP OAuth routes are the one fixed exception to the gate (see CLAUDE.md). Each is an exact
+// path and method; anything else falls through to the gate, where `oauth`, `mcp` or `.well-known`
+// can't equal APP_TOKEN, so it is still a bare 404.
+app.route('/', oauth);
 app.route('/:token', gated);
 app.notFound((c) => c.body(null, 404));
 app.onError((err, c) => {
