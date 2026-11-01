@@ -89,9 +89,10 @@ export function useAddMember() {
 
 // The member only narrows what is shown (own surprises); it is part of the key so a member
 // switch never shows the previous member's rows.
-export function useTitles(status: TitleStatus, member: string | null) {
+export function useTitles(status: TitleStatus, member: string | null, enabled = true) {
   return useQuery({
     queryKey: ['titles', status, member],
+    enabled,
     queryFn: async (): Promise<TitleDto[]> => {
       const res = await client.api.titles.$get({
         query: member ? { status, member } : { status },
@@ -141,8 +142,8 @@ export function useAddTitle() {
       // 201 = new row; 200 = an existing surprise was defused by this add.
       return { created: res.status === 201 };
     },
-    onSuccess: ({ created }, { hit, hidden }) => {
-      markInList(hit.tmdbId, hit.type);
+    onSuccess: ({ created }, { hit, hidden, addedBy }) => {
+      markInList(hit.tmdbId, hit.type, addedBy);
       void qc.invalidateQueries({ queryKey: ['titles'] });
       // On 200 never reveal that the title existed hidden: always the plain toast.
       toast(created && hidden ? copy.addToastSurprise(hit.title) : copy.addToastAdded(hit.title), {
@@ -151,10 +152,10 @@ export function useAddTitle() {
       });
     },
     onError: (error, vars) => {
-      const { hit } = vars;
+      const { hit, addedBy } = vars;
       if (error instanceof ApiError && error.status === 409) {
         // Already saved (e.g. by the other person): same end state as success.
-        markInList(hit.tmdbId, hit.type);
+        markInList(hit.tmdbId, hit.type, addedBy);
         void qc.invalidateQueries({ queryKey: ['titles'] });
         toast(copy.addToastExists);
         return;
@@ -174,10 +175,14 @@ export function useAddTitle() {
   });
   return mutation;
 
-  function markInList(tmdbId: number, type: TitleType) {
-    qc.setQueriesData<SearchHitDto[]>({ queryKey: ['search'] }, (old) =>
-      old?.map((h) => (h.tmdbId === tmdbId && h.type === type ? { ...h, inList: true } : h)),
+  // inList is per member (a hidden title only counts for its adder), so only the adder's
+  // cached searches flip; the others are refetched to pick up the server's answer.
+  function markInList(tmdbId: number, type: TitleType, addedBy: string) {
+    qc.setQueriesData<SearchHitDto[]>(
+      { queryKey: ['search'], predicate: (q) => q.queryKey[2] === addedBy },
+      (old) => old?.map((h) => (h.tmdbId === tmdbId && h.type === type ? { ...h, inList: true } : h)),
     );
+    void qc.invalidateQueries({ queryKey: ['search'], predicate: (q) => q.queryKey[2] !== addedBy });
   }
 }
 

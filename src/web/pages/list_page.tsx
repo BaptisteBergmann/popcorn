@@ -28,8 +28,9 @@ function TabPanel({
   filter: TypeFilter;
   onResetFilter: () => void;
 }) {
+  // Wait for the member: fetching with null would flash a skeleton and refetch once it resolves.
   const { member } = useMember();
-  const query = useTitles(status, member);
+  const query = useTitles(status, member, member !== null);
   const online = useOnline();
   const isRefetchError = query.isRefetchError;
 
@@ -102,8 +103,8 @@ export function ListPage() {
   const filter: TypeFilter = rawType === 'movie' || rawType === 'series' ? rawType : 'all';
 
   const { member } = useMember();
-  const toWatch = useTitles('to_watch', member);
-  const watched = useTitles('watched', member);
+  const toWatch = useTitles('to_watch', member, member !== null);
+  const watched = useTitles('watched', member, member !== null);
 
   useEffect(() => {
     document.title = copy.appName;
