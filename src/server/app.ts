@@ -62,6 +62,12 @@ export type AppType = typeof gated;
 
 export const app = new Hono();
 
+// Registered before secureHeaders so it runs after it on the way out. Hono's default
+// Cross-Origin-Opener-Policy: same-origin would sever a consent popup from its opener.
+app.use('/oauth/authorize', async (c, next) => {
+  await next();
+  c.res.headers.delete('Cross-Origin-Opener-Policy');
+});
 app.use(
   secureHeaders({
     referrerPolicy: 'no-referrer',
@@ -69,6 +75,8 @@ app.use(
     xContentTypeOptions: 'nosniff',
     // Stremio fetches the addon cross-origin; CORS is handled on those routes only.
     crossOriginResourcePolicy: false,
+    // No form-action on purpose: browsers apply it to the 303 redirect after a form post, and the
+    // consent form redirects to the client's callback.
     // The SPA only loads its own assets, TMDB posters, and inline styles from Radix/Tailwind.
     contentSecurityPolicy: {
       defaultSrc: ["'self'"],
