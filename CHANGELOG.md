@@ -2,6 +2,7 @@
 
 ## 2026-10-31
 
+- `afbe539` style(server): collapse wrapped calls in api routes
 - `5ae2398` fix(api): defuse a surprise when a concurrent insert wins the race
 - `a9eccda` fix(web): remove duplicate margin on card actions
 - `2a57ebc` fix(web): flip inList only in the adder's cached searches
