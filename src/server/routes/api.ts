@@ -1,51 +1,28 @@
 import { zValidator } from '@hono/zod-validator';
-import { and, asc, desc, eq, inArray, or } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { z } from 'zod';
 import { TITLE_STATUSES, TITLE_TYPES } from '@shared/constants';
 import { db } from '@server/db';
-import { memberKey, members, titles, type TitleRow } from '@server/db/schema';
+import { memberKey, members, titles } from '@server/db/schema';
 import { env } from '@server/env';
 import { logger } from '@server/logger';
-import { getDetails, posterUrl, searchMulti, TmdbError } from '@server/tmdb';
+import {
+  addTitle,
+  listTitles,
+  memberName,
+  removeTitle,
+  searchTitles,
+  setTitleStatus,
+  toDto,
+} from '@server/watchlist';
 
 // Small `{ error }` body instead of the validator's default payload.
 const onInvalid = (result: { success: boolean }, c: Context) => {
   if (!result.success) return c.json({ error: 'Invalid input' }, 400);
 };
 
-const parseGenres = (raw: string): string[] => {
-  try {
-    const v: unknown = JSON.parse(raw);
-    return Array.isArray(v) ? v.filter((g): g is string => typeof g === 'string') : [];
-  } catch {
-    return [];
-  }
-};
-
-function toDto(row: TitleRow) {
-  return {
-    id: row.id,
-    tmdbId: row.tmdbId,
-    type: row.type,
-    imdbId: row.imdbId,
-    hasImdb: row.imdbId !== null,
-    title: row.title,
-    year: row.year,
-    posterUrl: posterUrl(row.posterPath),
-    overview: row.overview,
-    genres: parseGenres(row.genres),
-    runtime: row.runtime,
-    addedBy: row.addedBy,
-    status: row.status,
-    addedAt: row.addedAt,
-    watchedAt: row.watchedAt,
-    hidden: row.hidden,
-  };
-}
-
-const memberName = z.string().trim().min(1).max(30);
 const idParam = z.object({ id: z.coerce.number().int().positive() });
 
 export const api = new Hono()
@@ -85,20 +62,7 @@ export const api = new Hono()
       }),
       onInvalid,
     ),
-    (c) => {
-      const { status, member } = c.req.valid('query');
-      // Soft visibility: surprises only show up for the member who added them.
-      const visible = member
-        ? or(eq(titles.hidden, false), eq(titles.addedBy, member))
-        : eq(titles.hidden, false);
-      const rows = db
-        .select()
-        .from(titles)
-        .where(status ? and(eq(titles.status, status), visible) : visible)
-        .orderBy(desc(titles.addedAt), desc(titles.id))
-        .all();
-      return c.json(rows.map(toDto));
-    },
+    (c) => c.json(listTitles(c.req.valid('query'))),
   )
   .post(
     '/titles',
@@ -113,68 +77,21 @@ export const api = new Hono()
       onInvalid,
     ),
     async (c) => {
-      const { tmdbId, type, addedBy, hidden } = c.req.valid('json');
-      const contextLogger = logger.child({ function: 'addTitle', tmdbId, type });
-
-      const member = db
-        .select({ name: members.name })
-        .from(members)
-        .where(eq(members.nameKey, memberKey(addedBy)))
-        .get();
-      if (!member) return c.json({ error: 'Unknown member' }, 400);
-
-      // Someone else picked a title that another member hid: defuse the surprise
-      // rather than spoil it with a 409 or leave them with a title that never shows.
-      const defuse = () => {
-        const exists = db
-          .select({ id: titles.id, hidden: titles.hidden, addedBy: titles.addedBy })
-          .from(titles)
-          .where(and(eq(titles.tmdbId, tmdbId), eq(titles.type, type)))
-          .get();
-        if (!exists) return null;
-        if (exists.hidden && exists.addedBy !== member.name) {
-          const revealed = db
-            .update(titles)
-            .set({ hidden: false })
-            .where(eq(titles.id, exists.id))
-            .returning()
-            .get();
-          if (revealed) {
-            contextLogger.info({ id: exists.id }, 'Surprise defused');
-            return c.json(toDto(revealed), 200);
-          }
-        }
-        return c.json({ error: 'Already in the list' }, 409);
-      };
-      const existing = defuse();
-      if (existing) return existing;
-
-      let details;
-      try {
-        details = await getDetails(type, tmdbId);
-      } catch (err) {
-        if (err instanceof TmdbError && err.status === 404) {
+      const result = await addTitle(c.req.valid('json'));
+      if (result.ok) return c.json(result.value.title, result.value.created ? 201 : 200);
+      // Literal statuses keep the inferred response types the web client relies on.
+      switch (result.code) {
+        case 'unknown_member':
+          return c.json({ error: 'Unknown member' }, 400);
+        case 'tmdb_not_found':
           return c.json({ error: 'Title not found on TMDB' }, 404);
-        }
-        contextLogger.error({ err: err instanceof Error ? err.message : 'unknown' }, 'Details fetch failed');
-        return c.json({ error: 'Could not reach TMDB' }, 502);
+        case 'no_imdb_id':
+          return c.json({ error: 'No IMDb id' }, 422);
+        case 'tmdb_unreachable':
+          return c.json({ error: 'Could not reach TMDB' }, 502);
+        default:
+          return c.json({ error: 'Already in the list' }, 409);
       }
-
-      // A surprise that can't reach Stremio could never come up in random.
-      if (hidden && details.imdbId === null) return c.json({ error: 'No IMDb id' }, 422);
-
-      // The unique index also guards the race between the check above and this insert.
-      const inserted = db
-        .insert(titles)
-        .values({ ...details, addedBy: member.name, addedAt: Date.now(), hidden })
-        .onConflictDoNothing()
-        .returning()
-        .get();
-      // Lost the race: a concurrent insert (possibly a hidden one by another member) won.
-      if (!inserted) return defuse() ?? c.json({ error: 'Already in the list' }, 409);
-
-      contextLogger.info('Title added');
-      return c.json(toDto(inserted), 201);
     },
   )
   .patch(
@@ -184,20 +101,9 @@ export const api = new Hono()
     (c) => {
       const { id } = c.req.valid('param');
       const { status } = c.req.valid('json');
-      const updated = db
-        .update(titles)
-        // Watched reveals a surprise; unmarking never re-hides it.
-        .set({
-          status,
-          watchedAt: status === 'watched' ? Date.now() : null,
-          ...(status === 'watched' ? { hidden: false } : {}),
-        })
-        .where(eq(titles.id, id))
-        .returning()
-        .get();
-      if (!updated) return c.json({ error: 'Not found' }, 404);
-      logger.child({ function: 'setStatus', id, status }).info('Status changed');
-      return c.json(toDto(updated));
+      const result = setTitleStatus(id, status, 'all');
+      if (!result.ok) return c.json({ error: 'Not found' }, 404);
+      return c.json(result.value);
     },
   )
   .post('/titles/:id/reveal', zValidator('param', idParam, onInvalid), (c) => {
@@ -214,9 +120,7 @@ export const api = new Hono()
   })
   .delete('/titles/:id', zValidator('param', idParam, onInvalid), (c) => {
     const { id } = c.req.valid('param');
-    const deleted = db.delete(titles).where(eq(titles.id, id)).returning({ id: titles.id }).get();
-    if (!deleted) return c.json({ error: 'Not found' }, 404);
-    logger.child({ function: 'removeTitle', id }).info('Title removed');
+    if (!removeTitle(id, 'all').ok) return c.json({ error: 'Not found' }, 404);
     return c.json({ ok: true as const });
   })
   .get(
@@ -231,47 +135,8 @@ export const api = new Hono()
     ),
     async (c) => {
       const { q, member } = c.req.valid('query');
-      let hits;
-      try {
-        hits = await searchMulti(q);
-      } catch (err) {
-        logger
-          .child({ function: 'search' })
-          .error({ err: err instanceof Error ? err.message : 'unknown' }, 'Search failed');
-        return c.json({ error: 'Could not reach TMDB' }, 502);
-      }
-      hits = hits.slice(0, 20);
-
-      const saved = hits.length
-        ? db
-            .select({
-              tmdbId: titles.tmdbId,
-              type: titles.type,
-              hidden: titles.hidden,
-              addedBy: titles.addedBy,
-            })
-            .from(titles)
-            .where(
-              inArray(
-                titles.tmdbId,
-                hits.map((h) => h.tmdbId),
-              ),
-            )
-            .all()
-        : [];
-      const inList = new Set(
-        saved.filter((s) => !s.hidden || s.addedBy === member).map((s) => `${s.type}:${s.tmdbId}`),
-      );
-
-      return c.json(
-        hits.map((h) => ({
-          tmdbId: h.tmdbId,
-          type: h.type,
-          title: h.title,
-          year: h.year,
-          posterUrl: posterUrl(h.posterPath),
-          inList: inList.has(`${h.type}:${h.tmdbId}`),
-        })),
-      );
+      const result = await searchTitles(q, member);
+      if (!result.ok) return c.json({ error: 'Could not reach TMDB' }, 502);
+      return c.json(result.value);
     },
   );
