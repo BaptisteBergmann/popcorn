@@ -16,6 +16,7 @@
 - `7632810` feat(oauth): add token, client and redirect helpers
 - `074193d` feat(db): add oauth client and grant tables
 - `75def9c` refactor(api): extract watchlist logic into a shared module
+- `842b5f1` docs: allow MCP OAuth routes outside the gate and add MCP plan
 - `baf3376` fix(web): show list error state when members fail to load
 
 ## 2026-10-31
