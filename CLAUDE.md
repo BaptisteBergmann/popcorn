@@ -48,8 +48,10 @@ secret URL token, no accounts. Follow the rules below for all code suggestions.
 
 ### 3. Access (secret URL token)
 
-- Everything is mounted under `/:token`, behind the single gate middleware in `src/server/token.ts` (constant-time compare). Any other path returns a bare 404.
-- Never add a route outside the gated sub-app.
+- Everything is mounted under `/:token`, behind the single gate middleware in `src/server/token.ts` (constant-time compare), except the MCP OAuth routes listed below. Any other path returns a bare 404.
+- Never add a route outside the gated sub-app. The only exception is this fixed list, mounted from `src/server/routes/oauth.ts` before the gate: `/mcp`, `/oauth/authorize`, `/oauth/register`, `/oauth/token`, `/oauth/revoke`, `/.well-known/oauth-protected-resource`, `/.well-known/oauth-protected-resource/mcp`, `/.well-known/oauth-authorization-server`. Adding to this list needs my explicit approval.
+- `/mcp` requires a valid OAuth access token, and those tokens reach `/mcp` only, never the gated app. Only hashes of OAuth codes and tokens are stored.
+- `MCP_CONNECT_CODE` is accepted only by the consent form at `POST /oauth/authorize`, rate limited and compared through `src/server/token.ts`. `APP_TOKEN` is never accepted by any OAuth route. Never log the form body.
 - Never commit the real hostname, the token or any secret. Committed files use `${SITE_URL}` / `popcorn.<domain>`; real values live only in the gitignored `mise.toml` and the Portainer stack env.
 - Never log the token. Send `Referrer-Policy: no-referrer` on every response, since the token is in the URL. External links use `rel="noreferrer"`.
 
@@ -80,7 +82,7 @@ secret URL token, no accounts. Follow the rules below for all code suggestions.
 ## 🧰 Tooling & Environment
 
 - Tool versions (Node, pnpm) and environment variables are managed with **mise**. Do not suggest nvm, direnv, or manually exporting env vars; use `mise.toml` / `mise` commands. `mise.toml` is gitignored; `mise.toml.example` is the committed template.
-- Env vars: `APP_TOKEN`, `TMDB_API_TOKEN` (TMDB v4 read access token), `SITE_URL`, `DATABASE_PATH` (default `/data/popcorn.db`), `PORT`.
+- Env vars: `APP_TOKEN`, `MCP_CONNECT_CODE` (optional; MCP sign-in stays disabled without it), `TMDB_API_TOKEN` (TMDB v4 read access token), `SITE_URL`, `DATABASE_PATH` (default `/data/popcorn.db`), `PORT`.
 - Scripts: `pnpm dev` (server + Vite together), `pnpm build`, `pnpm start`, `pnpm typecheck`, `pnpm lint`, `pnpm db:generate`.
 
 ## 🐳 Docker Build & Deploy
