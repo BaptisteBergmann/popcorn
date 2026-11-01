@@ -47,8 +47,9 @@ export function parseAuthorizeRequest(params: URLSearchParams): AuthorizeParse {
       {
         reason: result.kind === 'error_page' ? result.reason : new URL(result.url).searchParams.get('error'),
         paramKeys: [...new Set(params.keys())].slice(0, 30).map((k) => (/^[a-z_]{1,40}$/i.test(k) ? k : '<invalid>')),
-        responseType: params.get('response_type')?.slice(0, 40) ?? null,
-        codeChallengeMethod: params.get('code_challenge_method')?.slice(0, 20) ?? null,
+        // Attacker-controlled: log only values we recognise.
+        responseType: params.get('response_type') === 'code' ? 'code' : null,
+        codeChallengeMethod: params.get('code_challenge_method') === 'S256' ? 'S256' : null,
         codeChallengeLength: params.get('code_challenge')?.length ?? null,
         stateLength: params.get('state')?.length ?? null,
       },

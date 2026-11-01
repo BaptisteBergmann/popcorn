@@ -151,7 +151,13 @@ export const oauth = new Hono()
         registerTools(server, { memberName: grant.memberName, grantId: grant.grantId });
         return server;
       },
-      { legacy: 'stateless', maxSubscriptions: 0, maxRequestBodySize: 64 * 1024 },
+      {
+        legacy: 'stateless',
+        maxSubscriptions: 0,
+        maxRequestBodySize: 64 * 1024,
+        // Error text can echo request content, so log the class only.
+        onerror: (err) => contextLogger.warn({ errorClass: err.constructor.name }, 'MCP handler error'),
+      },
     );
     return handler.fetch(c.req.raw);
   })
@@ -369,17 +375,25 @@ export const oauth = new Hono()
   })
   // Consent step 1. Validates everything and shows the connect code field; no member names yet.
   .get('/oauth/authorize', (c) => {
-    if (!currentConnectCodeTag) {
-      if (!warnedNoConnectCode) {
-        warnedNoConnectCode = true;
-        logger.child({ function: 'authorize' }).warn('MCP_CONNECT_CODE is not set: MCP sign-in is disabled');
+    try {
+      if (!currentConnectCodeTag) {
+        if (!warnedNoConnectCode) {
+          warnedNoConnectCode = true;
+          logger.child({ function: 'authorize' }).warn('MCP_CONNECT_CODE is not set: MCP sign-in is disabled');
+        }
+        return page(c, invalidPage(), 400);
       }
-      return page(c, invalidPage(), 400);
+      const parsed = parseAuthorizeRequest(new URL(c.req.url).searchParams);
+      if (parsed.kind === 'error_page') return page(c, invalidPage(), 400);
+      if (parsed.kind === 'redirect_error') return c.redirect(parsed.url, 303);
+      return page(c, secretStepPage(parsed.request));
+    } catch (err) {
+      // A browser user would otherwise see the raw JSON from app.onError.
+      logger
+        .child({ function: 'authorizeGet' })
+        .error({ err: err instanceof Error ? err.message : 'unknown' }, 'Consent page failed');
+      return page(c, failPage(), 500);
     }
-    const parsed = parseAuthorizeRequest(new URL(c.req.url).searchParams);
-    if (parsed.kind === 'error_page') return page(c, invalidPage(), 400);
-    if (parsed.kind === 'redirect_error') return c.redirect(parsed.url, 303);
-    return page(c, secretStepPage(parsed.request));
   })
   // Consent steps 2 to 4. csrf() here only: token and revoke are form posts from non-browsers.
   // Under Referrer-Policy: no-referrer browsers send `Origin: null`, so Sec-Fetch-Site: same-origin
