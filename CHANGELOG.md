@@ -2,6 +2,7 @@
 
 ## 2026-11-01
 
+- `228df69` feat(oauth): log hostnames of refused redirect uris
 - `ff51bc4` fix(oauth): keep previously granted clients for 180 days and sweep unused ones after a day
 - `fdd6679` fix(oauth): distinct expired-step title, default port for https redirects, accurate limiter comment
 - `57b9525` fix(oauth): log only known authorize values, log MCP errors by class and render a page on consent GET failure
