@@ -2,6 +2,7 @@
 
 ## 2026-11-01
 
+- `302cfaf` feat(oauth): allow exact redirect uris from env for gemini
 - `8875d52` feat(oauth): log gemini callback paths on refused registration
 - `228df69` feat(oauth): log hostnames of refused redirect uris
 - `ff51bc4` fix(oauth): keep previously granted clients for 180 days and sweep unused ones after a day
