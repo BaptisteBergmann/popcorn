@@ -2,6 +2,7 @@
 
 ## 2026-10-31
 
+- `0c27a1b` feat(web): hooks for surprise titles
 - `1f32bd1` style(server): restore repo quote style in api and stremio routes
 - `9fce3b1` feat(stremio): keep surprises out of regular catalogs
 - `69003b9` feat(api): support hidden surprise titles
