@@ -2,6 +2,7 @@
 
 ## 2026-11-01
 
+- `483e436` feat(api): list and revoke MCP connections
 - `c3ef4de` feat(mcp): add MCP endpoint with watchlist tools
 - `504b6ef` feat(oauth): add server-rendered consent page
 - `66975f8` feat(oauth): add metadata, registration, token and revoke endpoints
