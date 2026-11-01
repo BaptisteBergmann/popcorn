@@ -67,6 +67,23 @@ const MAX_CONSENT_BODY_BYTES = 16 * 1024;
 const MAX_CLIENT_NAME = 100;
 const MAX_REDIRECT_URIS = 10;
 
+// Hostnames only, so paths and query strings stay out of the logs. Used to find a new client's host
+// for the allowlist. This endpoint is public, so the values are capped and limited to a hostname charset.
+function rejectedRedirectHosts(uris: unknown): string[] {
+  if (!Array.isArray(uris)) return [];
+  const hosts = new Set<string>();
+  for (const uri of uris.slice(0, MAX_REDIRECT_URIS)) {
+    if (typeof uri !== 'string' || isAllowedRedirectUri(uri)) continue;
+    try {
+      const { hostname } = new URL(uri);
+      if (/^[a-z0-9.-]{1,100}$/.test(hostname)) hosts.add(hostname);
+    } catch {
+      // Not a URL: nothing to report.
+    }
+  }
+  return [...hosts];
+}
+
 function sanitizeClientName(value: unknown): string {
   if (typeof value !== 'string') return 'MCP client';
   // Control, bidi and zero-width characters could spoof the consent page.
@@ -202,7 +219,10 @@ export const oauth = new Hono()
     const uris = meta.redirect_uris;
     const redirectUris = Array.isArray(uris) ? Array.from(new Set(uris.filter(isAllowedRedirectUri))) : [];
     if (redirectUris.length < 1 || redirectUris.length > MAX_REDIRECT_URIS) {
-      contextLogger.warn({ given: Array.isArray(uris) ? uris.length : 0 }, 'Registration rejected: redirect_uris');
+      contextLogger.warn(
+        { given: Array.isArray(uris) ? uris.length : 0, rejectedHosts: rejectedRedirectHosts(uris) },
+        'Registration rejected: redirect_uris',
+      );
       return oauthError(
         c,
         'invalid_redirect_uri',
