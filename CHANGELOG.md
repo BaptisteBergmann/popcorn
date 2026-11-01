@@ -2,6 +2,7 @@
 
 ## 2026-10-31
 
+- `9fce3b1` feat(stremio): keep surprises out of regular catalogs
 - `69003b9` feat(api): support hidden surprise titles
 - `688a06f` feat(db): add hidden flag to titles
 - `f3ba466` feat(stremio): add random catalogs
