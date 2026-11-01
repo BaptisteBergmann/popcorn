@@ -4,7 +4,9 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import type { HtmlEscapedString } from 'hono/utils/html';
+import { createMcpHandler, McpServer } from '@modelcontextprotocol/server';
 import { csrf } from 'hono/csrf';
+import { instructionsFor, registerTools } from '@server/mcp_tools';
 import { db } from '@server/db';
 import { OAUTH_AUTH_METHODS, members, oauthClients, type OAuthAuthMethod } from '@server/db/schema';
 import { logger } from '@server/logger';
@@ -35,6 +37,7 @@ import {
   createGrant,
   grantLimitReached,
   issueTokensForCode,
+  resolveAccessToken,
   revokeGrantByToken,
   rotateRefreshToken,
   sweepOAuth,
@@ -45,6 +48,8 @@ import {
   consentGlobalFailures,
   consentIpFailures,
   getClientIp,
+  mcpCallLimiter,
+  mcpFailedAuthLimiter,
   registerGlobalLimiter,
   registerIpLimiter,
   revokeIpLimiter,
@@ -106,7 +111,50 @@ const memberList = () =>
 const redirectWith = (c: Context, r: AuthorizeRequest, params: Record<string, string | null>) =>
   c.redirect(buildClientRedirect(r.redirectUri, { ...params, state: r.state }), 303);
 
+// The resource_metadata hint is how OAuth-only clients discover the authorization server. Every
+// failure returns the same body, and the token is never logged.
+const unauthorized = (c: Context, tokenSent: boolean) => {
+  const params = [`resource_metadata="${oauthUrls.prmUrl}"`, `scope="${OAUTH_SCOPE}"`];
+  if (tokenSent) params.unshift('error="invalid_token"');
+  return c.json({ error: 'unauthorized' }, 401, { 'WWW-Authenticate': `Bearer ${params.join(', ')}` });
+};
+
 export const oauth = new Hono()
+  // Stateless Streamable HTTP. The token comes from the Authorization header only, which browsers
+  // never attach on their own. `Origin` isn't validated (a spec deviation): there is no cookie
+  // for a browser to ride on, and a bearer header can't be forged cross-site.
+  .all('/mcp', async (c) => {
+    const contextLogger = logger.child({ function: 'mcpRoute' });
+    const match = /^Bearer (\S+)$/i.exec(c.req.header('authorization') ?? '');
+    const grant = match ? resolveAccessToken(match[1]!) : null;
+
+    if (!grant) {
+      if (!mcpFailedAuthLimiter.hit(getClientIp(c.req.raw.headers))) {
+        contextLogger.warn('Too many failed MCP auth attempts');
+        return c.json({ error: 'too_many_requests' }, 429, { 'Retry-After': '900' });
+      }
+      return unauthorized(c, match !== null);
+    }
+    if (!mcpCallLimiter.hit(grant.grantId)) {
+      contextLogger.warn({ grantId: grant.grantId }, 'MCP grant rate limited');
+      return c.json({ error: 'too_many_requests' }, 429, { 'Retry-After': '60' });
+    }
+
+    // One lightweight server per request, so the verified member travels by closure instead of
+    // shared state. maxSubscriptions 0 rejects listen streams, so no long-lived SSE is opened.
+    const handler = createMcpHandler(
+      () => {
+        const server = new McpServer(
+          { name: 'popcorn', version: '1.0.0' },
+          { instructions: instructionsFor(grant.memberName) },
+        );
+        registerTools(server, { memberName: grant.memberName, grantId: grant.grantId });
+        return server;
+      },
+      { legacy: 'stateless', maxSubscriptions: 0, maxRequestBodySize: 64 * 1024 },
+    );
+    return handler.fetch(c.req.raw);
+  })
   .get('/.well-known/oauth-protected-resource', (c) => {
     c.header('Cache-Control', 'public, max-age=300');
     return c.json(protectedResourceMetadata());
