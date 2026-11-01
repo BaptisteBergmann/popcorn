@@ -111,7 +111,7 @@ export function secretStepPage(r: AuthorizeRequest, error?: SecretError) {
       ? 'Cette étape a expiré. Saisis à nouveau le code.'
       : 'Code incorrect. Vérifie que tu l’as copié en entier.';
   return shell(
-    error ? 'Code incorrect - Popcorn' : 'Connexion - Popcorn',
+    error === 'expired' ? 'Étape expirée - Popcorn' : error ? 'Code incorrect - Popcorn' : 'Connexion - Popcorn',
     html`<div class="card">
 <div class="brand">Popcorn</div>
 <h1>Connecter une app à Popcorn</h1>

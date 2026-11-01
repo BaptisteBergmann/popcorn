@@ -22,7 +22,8 @@ export function isAllowedRedirectUri(uri: unknown): uri is string {
   }
   if (url.hash || uri.includes('#')) return false;
   if (url.username || url.password) return false;
-  if (url.protocol === 'https:') return ALLOWED_HTTPS_HOSTS.has(url.hostname);
+  // Default port only: a host allowlist alone would still accept claude.ai:8443.
+  if (url.protocol === 'https:') return url.port === '' && ALLOWED_HTTPS_HOSTS.has(url.hostname);
   return url.protocol === 'http:' && isLoopbackHost(url.hostname);
 }
 

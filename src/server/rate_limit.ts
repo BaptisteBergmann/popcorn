@@ -58,7 +58,8 @@ export function createRateLimiter({
 /**
  * Only cf-connecting-ip is read (set by the Cloudflare Tunnel); x-forwarded-for is client-controlled.
  * The container port is also published on the host, so the header can be forged by anything that
- * reaches it directly: limiters keyed on it also get a global bucket.
+ * reaches it directly, so a per-IP limit alone is bypassable. Only the consent-failure and
+ * registration limiters also have a global bucket; token, revoke and failed-MCP-auth are per-IP only.
  */
 export function getClientIp(headers: Headers): string {
   const value = headers.get('cf-connecting-ip')?.trim();
