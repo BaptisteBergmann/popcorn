@@ -410,7 +410,11 @@ export const oauth = new Hono()
 
       if (action === 'unlock') {
         if (consentIpFailures.isLimited(ip) || consentGlobalFailures.isLimited('all')) {
-          const wait = Math.max(consentIpFailures.retryAfter(ip), consentGlobalFailures.retryAfter('all'));
+          // Only a limiter that is actually tripped counts, or the global window would inflate the wait.
+          const wait = Math.max(
+            consentIpFailures.isLimited(ip) ? consentIpFailures.retryAfter(ip) : 0,
+            consentGlobalFailures.isLimited('all') ? consentGlobalFailures.retryAfter('all') : 0,
+          );
           contextLogger.warn('Consent form rate limited');
           return page(c, ratePage(r, wait), 429, { 'Retry-After': String(wait) });
         }
