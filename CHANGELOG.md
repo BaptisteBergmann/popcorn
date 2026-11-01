@@ -2,6 +2,7 @@
 
 ## 2026-11-01
 
+- `75def9c` refactor(api): extract watchlist logic into a shared module
 - `baf3376` fix(web): show list error state when members fail to load
 
 ## 2026-10-31
