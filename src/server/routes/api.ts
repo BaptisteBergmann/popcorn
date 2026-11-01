@@ -114,11 +114,7 @@ export const api = new Hono()
     ),
     async (c) => {
       const { tmdbId, type, addedBy, hidden } = c.req.valid('json');
-      const contextLogger = logger.child({
-        function: 'addTitle',
-        tmdbId,
-        type,
-      });
+      const contextLogger = logger.child({ function: 'addTitle', tmdbId, type });
 
       const member = db
         .select({ name: members.name })
@@ -160,10 +156,7 @@ export const api = new Hono()
         if (err instanceof TmdbError && err.status === 404) {
           return c.json({ error: 'Title not found on TMDB' }, 404);
         }
-        contextLogger.error(
-          { err: err instanceof Error ? err.message : 'unknown' },
-          'Details fetch failed',
-        );
+        contextLogger.error({ err: err instanceof Error ? err.message : 'unknown' }, 'Details fetch failed');
         return c.json({ error: 'Could not reach TMDB' }, 502);
       }
 
@@ -173,12 +166,7 @@ export const api = new Hono()
       // The unique index also guards the race between the check above and this insert.
       const inserted = db
         .insert(titles)
-        .values({
-          ...details,
-          addedBy: member.name,
-          addedAt: Date.now(),
-          hidden,
-        })
+        .values({ ...details, addedBy: member.name, addedAt: Date.now(), hidden })
         .onConflictDoNothing()
         .returning()
         .get();
