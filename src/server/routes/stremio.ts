@@ -40,10 +40,10 @@ const toMeta = (r: typeof titles.$inferSelect) => ({
 export const stremio = new Hono()
   // Stremio clients fetch the addon cross-origin; this is the only place CORS is opened.
   .use(cors({ origin: '*' }))
-  // Short cache so list changes show up quickly and Cloudflare doesn't hold stale lists.
+  // No HTTP caching, so list changes and random re-rolls are never served stale.
   .use(async (c, next) => {
     await next();
-    c.header('Cache-Control', 'max-age=60');
+    c.header('Cache-Control', 'no-store');
   })
   .get('/manifest.json', (c) => c.json(MANIFEST))
   .get('/catalog/:type/:file', (c) => {
@@ -51,7 +51,7 @@ export const stremio = new Hono()
     const id = file.endsWith('.json') ? file.slice(0, -'.json'.length) : null;
     if (!id || !isType(type)) return c.json({ error: 'Not found' }, 404);
 
-    // One random unwatched title of this type, re-rolled per fetch (subject to the 60 s cache).
+    // One random unwatched title of this type, re-rolled per fetch.
     // Hidden surprises are deliberately included: this is the only catalog where they can surface.
     if (id === 'random') {
       const pick = db

@@ -60,7 +60,7 @@ secret URL token, no accounts. Follow the rules below for all code suggestions.
 - `src/server/routes/stremio.ts`: `manifest.json` and `catalog/:type/:id.json`. No `stremio-addon-sdk`.
 - We only implement the `catalog` resource with IMDb ids (`tt…`). Cinemeta provides meta and other addons provide streams. Titles without an `imdb_id` are excluded from catalogs.
 - Hidden (surprise) titles appear only in the random catalogs and are excluded from all the others.
-- Stremio responses send `Access-Control-Allow-Origin: *` (Stremio routes only) and a short `Cache-Control`.
+- Stremio responses send `Access-Control-Allow-Origin: *` (Stremio routes only) and `Cache-Control: no-store`.
 - Bump the manifest `version` when catalogs or manifest fields change. Never change the manifest `id`.
 
 ### MCP
