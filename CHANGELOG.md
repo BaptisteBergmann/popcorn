@@ -2,6 +2,7 @@
 
 ## 2026-11-06
 
+- `335950e` fix(web): stop stale search text reappearing in the url and keep field in sync
 - `1f69013` fix(web): wrap long titles in empty states
 - `d9caa2f` feat(web): search and sort the watchlist
 - `4f2be55` feat(ui): add select component
