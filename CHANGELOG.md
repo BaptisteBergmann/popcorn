@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-06
+
+- `87b1c7d` fix(stremio): send no-store instead of max-age=60
+
 ## 2026-11-01
 
 - `302cfaf` feat(oauth): allow exact redirect uris from env for gemini
