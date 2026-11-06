@@ -2,6 +2,7 @@
 
 ## 2026-11-06
 
+- `3ac36ce` feat(web): add list search and sort helpers
 - `87b1c7d` fix(stremio): send no-store instead of max-age=60
 
 ## 2026-11-01
