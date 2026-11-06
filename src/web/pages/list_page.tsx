@@ -18,10 +18,9 @@ import { useTitles } from '@web/lib/api';
 import { copy } from '@web/lib/copy';
 import {
   MAX_QUERY_LENGTH,
-  matchesQuery,
+  applyListFilters,
   normalizeForSearch,
   parseSort,
-  sortTitles,
   type ListSort,
 } from '@web/lib/list_filters';
 import { useMember } from '@web/lib/member';
@@ -54,10 +53,8 @@ function TabPanel({
   const data = query.data;
   // Sort a copy at render time so optimistic cache updates stay correct under any sort.
   const visible = useMemo(() => {
-    const byType = !data || filter === 'all' ? (data ?? []) : data.filter((t) => t.type === filter);
-    const matched = byType.filter((t) => matchesQuery(t.title, normalizedQuery));
-    return sortTitles(matched, sort);
-  }, [data, filter, normalizedQuery, sort]);
+    return applyListFilters(data ?? [], filter, q, sort);
+  }, [data, filter, q, sort]);
   const isRefetchError = query.isRefetchError;
 
   useEffect(() => {
@@ -137,14 +134,7 @@ function TabPanel({
       />
     );
   }
-  return (
-    <>
-      <p role="status" aria-live="polite" className="pb-3 text-sm text-muted-foreground empty:hidden">
-        {normalizedQuery !== '' ? copy.searchResultCount(visible.length) : ''}
-      </p>
-      <TitleGrid items={visible} tab={status} />
-    </>
-  );
+  return <TitleGrid items={visible} tab={status} />;
 }
 
 export function ListPage() {
@@ -170,18 +160,6 @@ export function ListPage() {
     document.title = copy.appName;
   }, []);
 
-  // Tab and filter live in the URL so they survive a reload.
-  const update = (key: string, value: string | null) =>
-    setParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        if (value) next.set(key, value);
-        else next.delete(key);
-        return next;
-      },
-      { replace: true },
-    );
-
   const updateMany = (changes: Record<string, string | null>) =>
     setParams(
       (prev) => {
@@ -195,11 +173,32 @@ export function ListPage() {
       { replace: true },
     );
 
+  // Tab and filter live in the URL so they survive a reload.
+  const update = (key: string, value: string | null) => updateMany({ [key]: value });
+
+  // setParams changes identity on every URL change; keep it out of the effect deps so
+  // unrelated URL updates don't re-run the write with a stale debounced value.
+  const setParamsRef = useRef(setParams);
   useEffect(() => {
+    setParamsRef.current = setParams;
+  }, [setParams]);
+  // Last q value we know the field and the URL agree on, to spot external changes (nav links).
+  const syncedQ = useRef(q);
+
+  useEffect(() => {
+    if (q === syncedQ.current) return;
+    syncedQ.current = q;
+    setInput(q);
+  }, [q]);
+
+  useEffect(() => {
+    // Only write once the debounce has settled on what the field shows.
+    if (debouncedInput !== input) return;
     const next = debouncedInput.trim();
-    setParams(
+    if (next === syncedQ.current) return;
+    syncedQ.current = next;
+    setParamsRef.current(
       (prev) => {
-        if ((prev.get('q') ?? '') === next) return prev;
         const nextParams = new URLSearchParams(prev);
         if (next) nextParams.set('q', next);
         else nextParams.delete('q');
@@ -207,17 +206,25 @@ export function ListPage() {
       },
       { replace: true },
     );
-  }, [debouncedInput, setParams]);
+  }, [debouncedInput, input]);
 
   const clearSearch = () => {
+    syncedQ.current = '';
     setInput('');
     update('q', null);
   };
   const resetSearch = () => {
+    syncedQ.current = '';
     setInput('');
     updateMany({ q: null, type: null });
   };
-  const hasTitles = (toWatch.data?.length ?? 0) > 0 || (watched.data?.length ?? 0) > 0;
+  // Hide only once both lists are known to be empty, so the field doesn't pop in after loading.
+  const hasTitles = !(toWatch.data?.length === 0 && watched.data?.length === 0);
+  const activeData = tab === 'watched' ? watched.data : toWatch.data;
+  const resultCount =
+    normalizeForSearch(q) !== '' && activeData
+      ? applyListFilters(activeData, filter, q, sort).length
+      : 0;
 
   const count = (n: number | undefined) => (n === undefined ? '' : ` · ${n}`);
 
@@ -311,6 +318,9 @@ export function ListPage() {
             </Select>
           </div>
         )}
+        <p role="status" aria-live="polite" className="text-sm text-muted-foreground empty:hidden">
+          {resultCount > 0 ? copy.searchResultCount(resultCount) : ''}
+        </p>
         <div className="pt-3">
           <TabsContent value="to_watch">
             <TabPanel

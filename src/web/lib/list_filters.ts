@@ -54,3 +54,16 @@ export function sortTitles(items: TitleDto[], sort: ListSort): TitleDto[] {
   }[sort];
   return [...items].sort(compare);
 }
+
+export function applyListFilters(
+  items: TitleDto[],
+  type: 'all' | TitleDto['type'],
+  q: string,
+  sort: ListSort,
+): TitleDto[] {
+  const normalizedQuery = normalizeForSearch(q);
+  const matched = items.filter(
+    (t) => (type === 'all' || t.type === type) && matchesQuery(t.title, normalizedQuery),
+  );
+  return sortTitles(matched, sort);
+}
