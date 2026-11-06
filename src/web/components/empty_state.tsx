@@ -17,7 +17,7 @@ export function EmptyState({
   return (
     <div className="flex flex-col items-center gap-3 px-4 py-16 text-center">
       <Icon size={48} className={iconClassName} aria-hidden="true" />
-      <p className="text-lg font-semibold">{title}</p>
+      <p className="text-lg font-semibold [overflow-wrap:anywhere]">{title}</p>
       {body && <p className="text-sm text-muted-foreground">{body}</p>}
       {action}
     </div>
