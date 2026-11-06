@@ -2,6 +2,7 @@
 
 ## 2026-11-06
 
+- `d9caa2f` feat(web): search and sort the watchlist
 - `4f2be55` feat(ui): add select component
 - `3ac36ce` feat(web): add list search and sort helpers
 - `87b1c7d` fix(stremio): send no-store instead of max-age=60
