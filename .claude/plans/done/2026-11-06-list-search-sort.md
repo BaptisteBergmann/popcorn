@@ -3,9 +3,6 @@
 ## Status: implemented
 Shipped as planned: client-side search (`q`) and sort (`sort`) on the list page, helpers in `src/web/lib/list_filters.ts`, new `ui/select.tsx`. Deviations: `updateMany` helper so "Tout afficher" clears `q` and `type` in one URL update; the result count `role=status` region lives in `ListPage` (always mounted); the field syncs from `q` when it changes externally; controls hidden only once both lists are loaded and empty.
 
-Status: draft
-Approved by:
-
 ## Goal
 As the watchlist grows, finding a title already in it means scrolling. Add a text search
 over the titles in the list and a sort control on the list page, both combined with the
