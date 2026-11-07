@@ -2,6 +2,7 @@
 
 ## 2026-11-06
 
+- `e0f7146` docs(plans): drop stale draft status from list search plan
 - `74a5bd3` docs(plans): mark list search and sort plan implemented
 - `335950e` fix(web): stop stale search text reappearing in the url and keep field in sync
 - `1f69013` fix(web): wrap long titles in empty states
